@@ -2,17 +2,21 @@
   import "../app.css";
   import * as auth from "$lib/auth.svelte";
   import { goto } from "$app/navigation";
+  import { page } from "$app/state";
 
   let { children } = $props();
-  let currentPath = $state("");
+  let currentPath = $derived(String(page.url.pathname));
 
   $effect(() => {
-    currentPath = window.location.pathname;
     auth.checkAuth();
   });
 
   $effect(() => {
-    if (!auth.isLoading() && !auth.isAuthenticated() && currentPath !== "/login") {
+    if (
+      !auth.isLoading() &&
+      !auth.isAuthenticated() &&
+      currentPath !== "/login"
+    ) {
       goto("/login");
     }
   });
