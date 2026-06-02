@@ -44,7 +44,7 @@
   }
 </script>
 
-<div class="toolbar flex flex-wrap items-center gap-0.5 border-b px-2 py-1.5 bg-white sticky top-0 z-10">
+<div class="toolbar flex flex-wrap items-center gap-0.5 border-b px-2 py-1.5 bg-toolbar sticky top-0 z-10" style="border-color: var(--border-color);">
   <!-- Heading -->
   <button
     onclick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
@@ -142,7 +142,8 @@
   {#if isInCodeBlock}
     <span class="w-px h-5 bg-gray-300 mx-1"></span>
     <select
-      class="text-xs border rounded px-1 py-0.5 bg-white max-w-[120px]"
+      class="text-xs border rounded px-1 py-0.5 max-w-[120px] bg-editor"
+      style="border-color: var(--border-input); color: var(--text-primary);"
       value={currentLang}
       onchange={(e) => {
         const val = (e.target as HTMLSelectElement).value;
@@ -172,15 +173,16 @@
     border: none;
     background: transparent;
     cursor: pointer;
-    color: #374151;
+    color: var(--toolbar-btn-text);
     font-size: 13px;
     line-height: 1;
+    outline: none;
   }
   .toolbar-btn:hover {
-    background: #f3f4f6;
+    background: var(--toolbar-btn-hover-bg);
   }
   .toolbar-btn.is-active {
-    background: #e5e7eb;
-    color: #111827;
+    background: var(--toolbar-btn-active-bg);
+    color: var(--toolbar-btn-active-text);
   }
 </style>

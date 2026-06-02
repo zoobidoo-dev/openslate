@@ -23,21 +23,23 @@
   }
 </script>
 
-<div class="flex min-h-screen items-center justify-center">
+<div class="flex min-h-screen items-center justify-center" style="background: var(--bg-page);">
   <form onsubmit={handleSubmit} class="w-full max-w-sm space-y-4">
-    <h1 class="text-2xl font-bold">openslate</h1>
+    <h1 class="text-2xl font-bold" style="color: var(--text-primary);">openslate</h1>
     <input
       type="password"
       bind:value={password}
       placeholder="Password"
       class="w-full rounded border px-3 py-2"
+      style="color: var(--text-primary); caret-color: var(--text-primary); background: var(--bg-editor); border-color: var(--border-input);"
     />
     {#if error}
-      <p class="text-red-500 text-sm">{error}</p>
+      <p class="text-sm" style="color: var(--text-danger);">{error}</p>
     {/if}
     <button
       type="submit"
-      class="w-full rounded bg-black px-4 py-2 text-white hover:bg-gray-800"
+      class="w-full rounded px-4 py-2"
+      style="color: var(--text-btn-primary); background: var(--bg-btn-primary);"
     >
       Log in
     </button>

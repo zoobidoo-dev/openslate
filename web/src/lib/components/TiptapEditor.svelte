@@ -82,15 +82,9 @@
   });
 </script>
 
-<div class="tiptap-editor flex flex-col flex-1 border rounded overflow-hidden bg-white">
+<div class="tiptap-editor flex flex-col flex-1 border rounded overflow-hidden bg-editor" style="border-color: var(--border-color);">
   {#if editor}
     <EditorToolbar {editor} />
   {/if}
-  <div bind:this={editorEl} class="prose prose-sm max-w-none flex-1 overflow-y-auto px-4 py-3 editor-content"></div>
+  <div bind:this={editorEl} class="prose prose-sm max-w-none flex-1 overflow-y-auto px-4 py-3 editor-content" style="outline: none;"></div>
 </div>
-
-<style>
-  .tiptap-editor {
-    min-height: 200px;
-  }
-</style>

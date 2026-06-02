@@ -2,6 +2,7 @@ mod auth;
 mod config;
 mod db;
 mod notes;
+mod preferences;
 
 use axum::extract::FromRef;
 use axum::http::Method;
@@ -52,6 +53,10 @@ async fn main() {
             get(notes::get_note)
                 .put(notes::update_note)
                 .delete(notes::delete_note),
+        )
+        .route(
+            "/api/preferences",
+            get(preferences::get_preferences).put(preferences::update_preferences),
         )
         .route_layer(middleware::from_fn(auth::auth_middleware));
 

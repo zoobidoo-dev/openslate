@@ -1,6 +1,7 @@
 <script lang="ts">
   import "../app.css";
   import * as auth from "$lib/auth.svelte";
+  import * as theme from "$lib/theme.svelte";
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
 
@@ -20,18 +21,24 @@
       goto("/login");
     }
   });
+
+  $effect(() => {
+    if (auth.isAuthenticated()) {
+      theme.loadFromServer();
+    }
+  });
 </script>
 
 {#if currentPath === "/login"}
   {@render children()}
 {:else if auth.isLoading()}
-  <div class="flex min-h-screen items-center justify-center">
-    <p>Loading...</p>
+  <div class="flex min-h-screen items-center justify-center" style="background: var(--bg-page);">
+    <p style="color: var(--text-secondary);">Loading...</p>
   </div>
 {:else if auth.isAuthenticated()}
   {@render children()}
 {:else}
-  <div class="flex min-h-screen items-center justify-center">
-    <p>Redirecting...</p>
+  <div class="flex min-h-screen items-center justify-center" style="background: var(--bg-page);">
+    <p style="color: var(--text-secondary);">Redirecting...</p>
   </div>
 {/if}
