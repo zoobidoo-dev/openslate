@@ -3,6 +3,7 @@ mod config;
 mod db;
 mod notes;
 mod preferences;
+mod search;
 
 use axum::extract::FromRef;
 use axum::http::Method;
@@ -54,6 +55,7 @@ async fn main() {
                 .put(notes::update_note)
                 .delete(notes::delete_note),
         )
+        .route("/api/search", get(search::search_notes))
         .route(
             "/api/preferences",
             get(preferences::get_preferences).put(preferences::update_preferences),

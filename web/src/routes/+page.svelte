@@ -20,6 +20,16 @@
     backlinks: { title: string; slug: string }[];
   };
 
+  type SearchResult = {
+    id: string;
+    title: string;
+    slug: string;
+    created_at: string;
+    updated_at: string;
+    title_highlight: string | null;
+    content_snippet: string | null;
+  };
+
   let notes = $state<NoteSummary[]>([]);
   let selected = $state<NoteDetail | null>(null);
   let loading = $state(true);
@@ -40,6 +50,12 @@
   let ctxMenuNote = $state<NoteSummary | null>(null);
   let renamingSlug = $state<string | null>(null);
   let renameValue = $state("");
+
+  let searchQuery = $state("");
+  let searchResults = $state<SearchResult[]>([]);
+  let searching = $state(false);
+  let searchInputEl = $state<HTMLInputElement | null>(null);
+  let searchDebounce: ReturnType<typeof setTimeout> | null = null;
 
   onMount(() => {
     loadNotes();
@@ -63,12 +79,24 @@
     ctxMenuNote = note ?? null;
   }
 
+  function focusSearch() {
+    searchInputEl?.focus();
+  }
+
   function handleKeydown(e: KeyboardEvent) {
     if ((e.metaKey || e.ctrlKey) && e.key === "s") {
       e.preventDefault();
       save();
     }
+    if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === "F") {
+      e.preventDefault();
+      focusSearch();
+    }
     if (e.key === "Escape") {
+      if (searchQuery) {
+        clearSearch();
+        return;
+      }
       closeCtxMenu();
       if (renamingSlug) {
         renamingSlug = null;
@@ -86,6 +114,40 @@
       notes = [];
     }
     loading = false;
+  }
+
+  async function doSearch(query: string) {
+    if (!query.trim()) {
+      searchResults = [];
+      searching = false;
+      return;
+    }
+    searching = true;
+    try {
+      const res = await api(`/api/search?q=${encodeURIComponent(query)}`);
+      if (res.ok) {
+        searchResults = await res.json();
+      } else {
+        searchResults = [];
+      }
+    } catch {
+      searchResults = [];
+    }
+    searching = false;
+  }
+
+  function handleSearchInput(e: Event) {
+    const val = (e.target as HTMLInputElement).value;
+    searchQuery = val;
+    if (searchDebounce) clearTimeout(searchDebounce);
+    searchDebounce = setTimeout(() => doSearch(val), 200);
+  }
+
+  function clearSearch() {
+    searchQuery = "";
+    searchResults = [];
+    searching = false;
+    searchInputEl?.blur();
   }
 
   async function selectNote(slug: string) {
@@ -229,11 +291,40 @@
       <h1 class="font-bold text-lg" style="color: var(--text-primary);">openslate</h1>
       <button onclick={handleLogout} class="text-xs" style="color: var(--text-danger);">Log out</button>
     </div>
+    <div class="px-3 pt-2">
+      <input
+        bind:this={searchInputEl}
+        value={searchQuery}
+        oninput={handleSearchInput}
+        placeholder="Search notes... (⌘⇧F)"
+        class="w-full text-sm px-2 py-1.5 rounded outline-none"
+        style="color: var(--text-primary); background: var(--bg-editor); border: 1px solid var(--border-input);"
+      />
+    </div>
     <button onclick={startCreate} class="new-note-btn">
       + New note
     </button>
     <nav class="sidebar-nav flex-1 overflow-y-auto p-2 space-y-1">
-      {#if loading}
+      {#if searchQuery}
+        {#if searching}
+          <p class="text-sm p-2" style="color: var(--text-tertiary);">Searching...</p>
+        {:else if searchResults.length === 0}
+          <p class="text-sm p-2" style="color: var(--text-tertiary);">No results</p>
+        {:else}
+          {#each searchResults as result}
+            <button
+              onclick={() => { clearSearch(); selectNote(result.slug); }}
+              class="note-btn text-left"
+            >
+              <div class="font-medium truncate">{@html result.title_highlight || result.title}</div>
+              {#if result.content_snippet}
+                <div class="text-xs mt-1 line-clamp-2" style="color: var(--text-secondary);">{@html result.content_snippet}</div>
+              {/if}
+              <div class="text-xs mt-0.5" style="color: var(--text-tertiary);">{formatDate(result.updated_at)}</div>
+            </button>
+          {/each}
+        {/if}
+      {:else if loading}
         <p class="text-sm p-2" style="color: var(--text-tertiary);">Loading...</p>
       {:else if notes.length === 0}
         <p class="text-sm p-2" style="color: var(--text-tertiary);">No notes yet</p>
