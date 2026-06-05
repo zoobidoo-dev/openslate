@@ -36,3 +36,51 @@ pub async fn update_preferences(
 
     Ok(Json(json!({ "success": true })))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use sqlx::SqlitePool;
+
+    async fn setup_db() -> SqlitePool {
+        let pool = SqlitePool::connect("sqlite::memory:")
+            .await
+            .expect("failed to create pool");
+
+        sqlx::query(
+            "CREATE TABLE preferences (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            )",
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+
+        pool
+    }
+
+    #[tokio::test]
+    async fn test_set_and_get_theme() {
+        let db = setup_db().await;
+
+        let _ = update_preferences(
+            State(db.clone()),
+            Json(UpdatePreferences {
+                theme: Some("dark".into()),
+            }),
+        )
+        .await
+        .unwrap();
+
+        let prefs = get_preferences(State(db)).await.unwrap();
+        assert_eq!(prefs.get("theme").unwrap(), &json!("dark"));
+    }
+
+    #[tokio::test]
+    async fn test_get_empty_preferences() {
+        let db = setup_db().await;
+        let prefs = get_preferences(State(db)).await.unwrap();
+        assert!(prefs.as_object().unwrap().is_empty());
+    }
+}
