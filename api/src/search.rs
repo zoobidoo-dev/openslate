@@ -69,9 +69,12 @@ pub async fn search_notes(
 mod tests {
     use super::*;
     use sqlx::SqlitePool;
+    use sqlx::sqlite::SqlitePoolOptions;
 
     async fn setup_db() -> SqlitePool {
-        let pool = SqlitePool::connect("sqlite::memory:")
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
             .await
             .expect("failed to create pool");
 
@@ -91,7 +94,10 @@ mod tests {
 
         sqlx::query(
             "CREATE VIRTUAL TABLE notes_fts USING fts5(
-                id UNINDEXED, title, content
+                id UNINDEXED,
+                title,
+                content,
+                tokenize='porter unicode61'
             )",
         )
         .execute(&pool)
@@ -99,14 +105,17 @@ mod tests {
         .unwrap();
 
         sqlx::query(
-            "INSERT INTO notes (id, title, slug, content) VALUES ('1', 'Hello World', 'hello-world', 'This is a test note')",
+            "CREATE TRIGGER IF NOT EXISTS notes_ai AFTER INSERT ON notes BEGIN
+                INSERT INTO notes_fts (id, title, content) VALUES (new.id, new.title, new.content);
+            END",
         )
         .execute(&pool)
         .await
         .unwrap();
 
+        // Insert a sample note (trigger populates notes_fts)
         sqlx::query(
-            "INSERT INTO notes_fts (id, title, content) VALUES ('1', 'Hello World', 'This is a test note')",
+            "INSERT INTO notes (id, title, slug, content) VALUES ('1', 'Hello World', 'hello-world', 'This is a test note')",
         )
         .execute(&pool)
         .await
