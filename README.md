@@ -4,6 +4,8 @@ A self-hosted markdown note-taking app. Fast, simple, private. Access your notes
 
 **Single user only.** No sign-ups, no sharing, no complexity. Just notes.
 
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/MrSheerluck/openslate)
+
 ## Features
 
 - **Rich text editing** - Tiptap editor with markdown support, syntax highlighting, tables, task lists
