@@ -54,7 +54,7 @@ R2_SECRET_KEY=your-secret
 
 Then restart: `docker compose down && docker compose up -d`.
 
-> **Note for local use:** The repo's `docker-compose.yml` includes Watchtower for automated VPS updates. Running locally, Watchtower will log harmless errors trying to pull from GHCR without auth. You can remove the `watchtower:` service block if you don't need it.
+> **Note for local use:** The repo's `docker-compose.yml` uses `build: .` (local build). For VPS deployments using the GHCR image, edit the compose file to replace `build: .` with `image: ghcr.io/YOUR_USERNAME/openslate:latest`.
 
 ---
 
@@ -210,39 +210,30 @@ After changing any value, run: `docker compose down && docker compose up -d`
 
 ## Updates
 
-### Option A: Automated (CI + Watchtower) (recommended)
+### Option A: Automated (CI + cron job) (recommended)
 
 Once set up, updates are fully hands-off: push to `main` and the VPS updates itself within minutes.
 
 **How it works:**
-- A GitHub Actions workflow builds and pushes the Docker image on every push to `main`.
-- [Watchtower](https://containrrr.dev/watchtower/) runs alongside your app on the VPS. Every 2 minutes it checks GHCR for a newer image, pulls it, and restarts the container.
+- A GitHub Actions workflow builds and pushes the Docker image to GHCR on every push to `main`.
+- A cron job on the VPS runs every 2 minutes, pulls the latest GHCR image, and restarts the container if a new version was found.
 
 **One-time setup:**
 
-1. Add a GitHub personal access token as a repo secret:
+1. Add a GitHub personal access token as a repo secret (so CI can push the image):
    - **GitHub → Repo Settings → Secrets and variables → Actions → New repository secret**
    - Name: `GHCR_PAT`
    - Value: a [classic PAT](https://github.com/settings/tokens) with `read:packages` and `write:packages` scopes.
 
-2. On your VPS, add Watchtower to `docker-compose.yml` (already included in the repo, just make sure it's present):
+2. On your VPS, add a cron job that pulls the latest image every 2 minutes:
 
-   ```yaml
-   watchtower:
-     image: containrrr/watchtower
-     volumes:
-       - /var/run/docker.sock:/var/run/docker.sock
-     environment:
-       - WATCHTOWER_CLEANUP=true
-       - WATCHTOWER_POLL_INTERVAL=120
-     restart: unless-stopped
+   ```bash
+   (crontab -l 2>/dev/null; echo '*/2 * * * * cd /opt/openslate && docker compose pull openslate && docker compose up -d openslate') | crontab -
    ```
 
-   Then: `docker compose down && docker compose up -d`
+3. On your VPS, edit `/opt/openslate/docker-compose.yml` and replace `build: .` with `image: ghcr.io/YOUR_USERNAME/openslate:latest` so the cron job pulls from GHCR instead of rebuilding locally.
 
-From then on: `git push` to `main` → CI builds & pushes → Watchtower detects within 2 min → auto-updates. Nothing else needed.
-
-> **Note:** If you're only running OpenSlate locally (Option 1), you can remove Watchtower from `docker-compose.yml` or disable it with `profiles`. It's only useful on a VPS.
+From then on: `git push` to `main` → CI builds & pushes → cron pulls within 2 min → auto-updates. Nothing else needed.
 
 ### Option B: Manual (push from your machine)
 

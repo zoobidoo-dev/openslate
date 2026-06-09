@@ -18,14 +18,5 @@ services:
       - R2_SECRET_KEY=${R2_SECRET_KEY}
     restart: unless-stopped
 
-  watchtower:
-    image: containrrr/watchtower
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    environment:
-      - WATCHTOWER_CLEANUP=true
-      - WATCHTOWER_POLL_INTERVAL=120
-    restart: unless-stopped
-
 volumes:
   data:
