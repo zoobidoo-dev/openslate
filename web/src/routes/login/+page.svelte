@@ -1,9 +1,22 @@
 <script lang="ts">
   import * as auth from "$lib/auth.svelte";
   import { goto } from "$app/navigation";
+  import { onMount } from "svelte";
+  import { api } from "$lib/api";
 
   let password = $state("");
   let error = $state("");
+  let isFirstRun = $state(true);
+
+  onMount(async () => {
+    try {
+      const res = await api("/api/auth/status");
+      if (res.ok) {
+        const data = await res.json();
+        isFirstRun = !data.has_users;
+      }
+    } catch {}
+  });
 
   $effect(() => {
     if (auth.isAuthenticated()) {
@@ -18,7 +31,7 @@
     if (ok) {
       goto("/");
     } else {
-      error = "Wrong password";
+      error = isFirstRun ? "Failed to create account" : "Wrong password";
     }
   }
 </script>
@@ -26,6 +39,9 @@
 <div class="flex min-h-screen items-center justify-center" style="background: var(--bg-page);">
   <form onsubmit={handleSubmit} class="w-full max-w-sm space-y-4">
     <h1 class="text-2xl font-bold" style="color: var(--text-primary);">openslate</h1>
+    {#if isFirstRun}
+      <p class="text-sm" style="color: var(--text-secondary);">Set your admin password to get started.</p>
+    {/if}
     <input
       type="password"
       bind:value={password}
@@ -41,7 +57,7 @@
       class="w-full rounded px-4 py-2"
       style="color: var(--text-btn-primary); background: var(--bg-btn-primary);"
     >
-      Log in
+      {isFirstRun ? "Create account" : "Log in"}
     </button>
   </form>
 </div>

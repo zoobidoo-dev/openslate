@@ -2,6 +2,8 @@
 
 Thanks for your interest in contributing! OpenSlate is a self-hosted markdown note-taking app built with SvelteKit (frontend) and Rust/Axum (backend).
 
+Please read our [Code of Conduct](CODE_OF_CONDUCT.md) before participating.
+
 ## Quick Start
 
 ### Prerequisites

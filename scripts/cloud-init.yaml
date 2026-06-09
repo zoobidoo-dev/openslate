@@ -1,0 +1,28 @@
+#cloud-config
+# Paste this into DigitalOcean's User Data field (or any Ubuntu VPS startup script field).
+# Single click: it installs Docker, clones openslate, and starts the app on port 8080.
+#
+# After deploy, SSH into the server and edit /opt/openslate/.env to set:
+#   DOMAIN=your-domain.com       # enables HTTPS via Caddy
+#   R2_BUCKET=...                # enables media uploads
+# Then run: cd /opt/openslate && docker compose up -d
+
+package_update: true
+package_upgrade: true
+packages:
+  - docker.io
+  - docker-compose-v2
+  - git
+
+write_files:
+  - path: /etc/docker/daemon.json
+    content: |
+      { "log-driver": "json-file", "log-opts": { "max-size": "10m", "max-file": "3" } }
+
+runcmd:
+  - systemctl enable --now docker
+  - git clone https://github.com/MrSheerluck/openslate /opt/openslate
+  - |
+    sed "s/JWT_SECRET=.*/JWT_SECRET=$(openssl rand -hex 32)/" \
+      /opt/openslate/.env.example > /opt/openslate/.env
+  - cd /opt/openslate && docker compose up -d

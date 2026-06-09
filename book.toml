@@ -1,0 +1,12 @@
+[book]
+title = "OpenSlate Docs"
+authors = ["OpenSlate"]
+language = "en"
+src = "docs"
+
+[build]
+build-dir = "book"
+
+[output.html]
+git-repository-url = "https://github.com/MrSheerluck/openslate"
+edit-url-template = "https://github.com/MrSheerluck/openslate/edit/main/{path}"

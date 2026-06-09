@@ -9,6 +9,14 @@ use sqlx::{QueryBuilder, SqlitePool};
 use uuid::Uuid;
 
 use crate::AppState;
+use s3::Client;
+
+fn storage(state: &AppState) -> Result<(&Client, &str), StatusCode> {
+    match (&state.client, &state.bucket) {
+        (Some(client), Some(bucket)) => Ok((client, bucket.as_str())),
+        _ => Err(StatusCode::SERVICE_UNAVAILABLE),
+    }
+}
 
 #[derive(Serialize, sqlx::FromRow)]
 pub struct MediaRow {
@@ -38,7 +46,8 @@ pub struct ListMediaParams {
     r#type: Option<String>,
     note_id: Option<String>,
     q: Option<String>,
-    tags: Option<String>,
+    #[serde(rename = "tags")]
+    _tags: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -110,12 +119,11 @@ async fn set_media_tags(pool: &SqlitePool, media_id: &str, tags: Option<Vec<Stri
             .await
             .ok();
 
-        if let Some(tag_id) =
-            sqlx::query_scalar::<_, String>("SELECT id FROM tags WHERE name = ?")
-                .bind(name)
-                .fetch_optional(pool)
-                .await
-                .unwrap_or(None)
+        if let Some(tag_id) = sqlx::query_scalar::<_, String>("SELECT id FROM tags WHERE name = ?")
+            .bind(name)
+            .fetch_optional(pool)
+            .await
+            .unwrap_or(None)
         {
             sqlx::query("INSERT OR IGNORE INTO media_tags (media_id, tag_id) VALUES (?, ?)")
                 .bind(media_id)
@@ -177,10 +185,11 @@ pub async fn upload_media(
     let filename = format!("{}.{}", id, ext);
     let key = format!("media/{}", filename);
 
-    state
-        .client
+    let (client, bucket) = storage(&state)?;
+
+    client
         .objects()
-        .put(&state.bucket, &key)
+        .put(bucket, &key)
         .content_type(&mime_type)
         .body_bytes(bytes.clone())
         .send()
@@ -231,15 +240,15 @@ pub async fn list_media(
         }
         builder.push_bind(note_id);
     }
-    if let Some(ref q) = params.q {
-        if !q.is_empty() {
-            if has_where {
-                builder.push(" AND m.original_name LIKE ");
-            } else {
-                builder.push(" WHERE m.original_name LIKE ");
-            }
-            builder.push_bind(format!("%{}%", q));
+    if let Some(ref q) = params.q
+        && !q.is_empty()
+    {
+        if has_where {
+            builder.push(" AND m.original_name LIKE ");
+        } else {
+            builder.push(" WHERE m.original_name LIKE ");
         }
+        builder.push_bind(format!("%{}%", q));
     }
 
     builder.push(" ORDER BY m.created_at DESC LIMIT 50");
@@ -309,15 +318,19 @@ pub async fn serve_media_file(
     .ok_or(StatusCode::NOT_FOUND)?;
 
     let key = format!("media/{}", row.filename);
-    let result = state
-        .client
+    let (client, bucket) = storage(&state)?;
+
+    let result = client
         .objects()
-        .get(&state.bucket, &key)
+        .get(bucket, &key)
         .send()
         .await
         .map_err(|_| StatusCode::NOT_FOUND)?;
 
-    let bytes = result.bytes().await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let bytes = result
+        .bytes()
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     Ok(Response::builder()
         .header(header::CONTENT_TYPE, &row.mime_type)
@@ -349,7 +362,9 @@ pub async fn delete_media(
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     let key = format!("media/{}", row.filename);
-    state.client.objects().delete(&state.bucket, &key).send().await.ok();
+    let (client, bucket) = storage(&state)?;
+
+    client.objects().delete(bucket, &key).send().await.ok();
 
     Ok(StatusCode::NO_CONTENT)
 }
@@ -369,7 +384,11 @@ pub async fn update_media(
     .ok_or(StatusCode::NOT_FOUND)?;
 
     if let Some(ref note_id) = body.note_id {
-        let new_note_id = if note_id.is_empty() { None } else { Some(note_id.clone()) };
+        let new_note_id = if note_id.is_empty() {
+            None
+        } else {
+            Some(note_id.clone())
+        };
         sqlx::query("UPDATE media SET note_id = ? WHERE id = ?")
             .bind(&new_note_id)
             .bind(&id)
@@ -382,10 +401,7 @@ pub async fn update_media(
 
     let tags = get_media_tags(&state.db, &id).await;
 
-    let note_id = body
-        .note_id
-        .filter(|n| !n.is_empty())
-        .or(existing.note_id);
+    let note_id = body.note_id.filter(|n| !n.is_empty()).or(existing.note_id);
 
     Ok(Json(MediaItem {
         id: existing.id,
@@ -401,8 +417,7 @@ pub async fn update_media(
 
 fn filename_from_url(url: &str) -> String {
     url.split('/')
-        .filter(|s| !s.is_empty())
-        .last()
+        .rfind(|s| !s.is_empty())
         .unwrap_or("untitled")
         .split('?')
         .next()
@@ -418,16 +433,25 @@ pub async fn import_from_url(
         .timeout(std::time::Duration::from_secs(30))
         .user_agent("openslate/1.0")
         .build()
-        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": "Failed to create HTTP client"}))))?;
+        .map_err(|_| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({"error": "Failed to create HTTP client"})),
+            )
+        })?;
 
-    let response = client
-        .get(&body.url)
-        .send()
-        .await
-        .map_err(|e| (StatusCode::BAD_REQUEST, Json(serde_json::json!({"error": format!("Failed to fetch URL: {}", e)}))))?;
+    let response = client.get(&body.url).send().await.map_err(|e| {
+        (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({"error": format!("Failed to fetch URL: {}", e)})),
+        )
+    })?;
 
     if !response.status().is_success() {
-        return Err((StatusCode::BAD_REQUEST, Json(serde_json::json!({"error": format!("URL returned HTTP {}", response.status())}))));
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({"error": format!("URL returned HTTP {}", response.status())})),
+        ));
     }
 
     let mime_type = response
@@ -437,10 +461,18 @@ pub async fn import_from_url(
         .unwrap_or("application/octet-stream")
         .to_string();
 
-    let bytes = response.bytes().await.map_err(|_| (StatusCode::BAD_REQUEST, Json(serde_json::json!({"error": "Failed to read response body"}))))?;
+    let bytes = response.bytes().await.map_err(|_| {
+        (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({"error": "Failed to read response body"})),
+        )
+    })?;
 
     if bytes.is_empty() {
-        return Err((StatusCode::BAD_REQUEST, Json(serde_json::json!({"error": "Empty response body"}))));
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({"error": "Empty response body"})),
+        ));
     }
 
     let original_name = filename_from_url(&body.url);
@@ -449,15 +481,26 @@ pub async fn import_from_url(
     let filename = format!("{}.{}", id, ext);
     let key = format!("media/{}", filename);
 
-    state
-        .client
+    let (client, bucket) = storage(&state).map_err(|_| {
+        (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::json!({"error": "Media storage not configured"})),
+        )
+    })?;
+
+    client
         .objects()
-        .put(&state.bucket, &key)
+        .put(bucket, &key)
         .content_type(&mime_type)
         .body_bytes(bytes.to_vec())
         .send()
         .await
-        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": "Failed to upload file to storage"}))))?;
+        .map_err(|_| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({"error": "Failed to upload file to storage"})),
+            )
+        })?;
 
     let note_id = body.note_id.filter(|n| !n.is_empty());
 
@@ -472,7 +515,12 @@ pub async fn import_from_url(
     .bind(&note_id)
     .execute(&state.db)
     .await
-    .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({"error": "Database error"}))))?;
+    .map_err(|_| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": "Database error"})),
+        )
+    })?;
 
     let tags = body.tags.map(|t| {
         t.split(',')

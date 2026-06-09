@@ -4,9 +4,10 @@
   import * as auth from "$lib/auth.svelte";
   import * as theme from "$lib/theme.svelte";
   import { goto } from "$app/navigation";
-  import TiptapEditor from "$lib/components/TiptapEditor.svelte";
+  import MarkdownEditor from "$lib/components/MarkdownEditor.svelte";
   import MediaGallery from "$lib/components/MediaGallery.svelte";
   import MediaPicker from "$lib/components/MediaPicker.svelte";
+  import CommandPalette from "$lib/components/CommandPalette.svelte";
 
   type NoteSummary = {
     id: string;
@@ -64,6 +65,8 @@
   let searchInputEl = $state<HTMLInputElement | null>(null);
   let searchDebounce: ReturnType<typeof setTimeout> | null = null;
 
+  let cmdPaletteOpen = $state(false);
+
   onMount(() => {
     loadNotes();
 
@@ -71,7 +74,60 @@
       if (dirty) save();
     }, 2000);
 
-    return () => clearInterval(interval);
+    function onKeydown(e: KeyboardEvent) {
+      const mod = e.metaKey || e.ctrlKey;
+      if (mod && e.shiftKey && !e.altKey) {
+        switch (e.code) {
+          case "KeyP":
+            e.preventDefault();
+            e.stopPropagation();
+            cmdPaletteOpen = !cmdPaletteOpen;
+            return;
+          case "KeyK":
+            e.preventDefault();
+            e.stopPropagation();
+            startCreate();
+            return;
+          case "KeyS":
+            e.preventDefault();
+            e.stopPropagation();
+            save();
+            return;
+          case "KeyF":
+            e.preventDefault();
+            e.stopPropagation();
+            focusSearch();
+            return;
+          case "KeyG":
+            e.preventDefault();
+            e.stopPropagation();
+            activeTab = activeTab === "media" ? "notes" : "media";
+            return;
+        }
+      }
+      if (e.key === "Escape") {
+        if (cmdPaletteOpen) {
+          cmdPaletteOpen = false;
+          return;
+        }
+        if (searchQuery) {
+          clearSearch();
+          return;
+        }
+        closeCtxMenu();
+        if (renamingSlug) {
+          renamingSlug = null;
+          renameValue = "";
+        }
+      }
+    }
+
+    document.addEventListener("keydown", onKeydown, { capture: true });
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("keydown", onKeydown, { capture: true });
+    };
   });
 
   function closeCtxMenu() {
@@ -88,32 +144,6 @@
 
   function focusSearch() {
     searchInputEl?.focus();
-  }
-
-  function handleKeydown(e: KeyboardEvent) {
-    if ((e.metaKey || e.ctrlKey) && e.key === "s") {
-      e.preventDefault();
-      save();
-    }
-    if ((e.metaKey || e.ctrlKey) && e.key === "f") {
-      e.preventDefault();
-      focusSearch();
-    }
-    if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === "M") {
-      e.preventDefault();
-      activeTab = activeTab === "media" ? "notes" : "media";
-    }
-    if (e.key === "Escape") {
-      if (searchQuery) {
-        clearSearch();
-        return;
-      }
-      closeCtxMenu();
-      if (renamingSlug) {
-        renamingSlug = null;
-        renameValue = "";
-      }
-    }
   }
 
   async function loadNotes() {
@@ -166,7 +196,7 @@
   }
 
   function handleMediaSelect(item: { id: string; original_name: string; mime_type: string }) {
-    const url = `${import.meta.env.VITE_API_URL || "http://localhost:3001"}/api/media/${item.id}/file`;
+    const url = `${import.meta.env.VITE_API_URL ?? "http://localhost:3001"}/api/media/${item.id}/file`;
     const md = item.mime_type.startsWith("image/")
       ? `![${item.original_name}](${url})`
       : `[${item.original_name}](${url})`;
@@ -192,7 +222,7 @@
   }
 
   async function removeNoteMedia(m: { id: string }) {
-    const url = `${import.meta.env.VITE_API_URL || "http://localhost:3001"}/api/media/${m.id}/file`;
+    const url = `${import.meta.env.VITE_API_URL ?? "http://localhost:3001"}/api/media/${m.id}/file`;
     await api(`/api/media/${m.id}`, { method: "PUT", body: JSON.stringify({ note_id: "" }) });
     const escaped = url.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     editContent = editContent.replace(new RegExp(`!\\[.*?\\]\\(${escaped}\\)|\\[.*?\\]\\(${escaped}\\)`, "g"), "");
@@ -328,8 +358,6 @@
   }
 </script>
 
-<svelte:window onkeydown={handleKeydown} />
-
 <div class="flex h-screen">
   <!-- Sidebar -->
   <aside
@@ -340,7 +368,12 @@
     <div class="p-3 border-b flex flex-col gap-2" style="border-color: var(--border-color);">
       <div class="flex items-center justify-between">
         <h1 class="font-bold text-lg" style="color: var(--text-primary);">openslate</h1>
-        <button onclick={handleLogout} class="text-xs" style="color: var(--text-danger);">Log out</button>
+        <div class="flex items-center gap-2">
+          <button onclick={() => cmdPaletteOpen = true} class="text-xs px-1.5 py-0.5 rounded border cursor-pointer hover:opacity-80" style="color: var(--text-tertiary); border-color: var(--border-color);" title="Command palette (⌘⇧P / Ctrl+Shift+P)">
+            ⌘⇧P
+          </button>
+          <button onclick={handleLogout} class="text-xs" style="color: var(--text-danger);">Log out</button>
+        </div>
       </div>
       <div class="flex gap-1">
         <button
@@ -473,7 +506,7 @@
           class="text-sm outline-none border-b pb-2"
           style="color: var(--text-secondary); caret-color: var(--text-primary); border-color: var(--border-color); background: transparent;"
         />
-        <TiptapEditor
+        <MarkdownEditor
           content={editContent}
           noteId={selected?.id ?? ""}
           insertMediaMd={mediaToInsertMd}
@@ -489,7 +522,7 @@
               {#each noteMedia as m}
                 <div class="inline-flex items-center gap-1">
                   <a
-                    href={`${import.meta.env.VITE_API_URL || "http://localhost:3001"}/api/media/${m.id}/file`}
+                    href={`${import.meta.env.VITE_API_URL ?? "http://localhost:3001"}/api/media/${m.id}/file`}
                     target="_blank"
                     rel="noreferrer"
                     class="text-xs px-2 py-1 rounded border inline-flex items-center gap-1 hover:opacity-80"
@@ -578,6 +611,17 @@
     onSelect={handleMediaSelect}
   />
 {/if}
+
+<CommandPalette
+  open={cmdPaletteOpen}
+  onClose={() => cmdPaletteOpen = false}
+  onCreateNote={startCreate}
+  onSave={save}
+  onFocusSearch={focusSearch}
+  onSwitchTab={(tab) => activeTab = tab}
+  onSetTheme={(t) => { theme.setTheme(t); currentTheme = t; }}
+  onLogout={handleLogout}
+/>
 
 <style>
   .note-btn-wrapper {

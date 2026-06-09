@@ -5,6 +5,7 @@ mod media;
 mod notes;
 mod preferences;
 mod search;
+mod users;
 
 use axum::extract::FromRef;
 use axum::http::Method;
@@ -15,8 +16,8 @@ use tower_http::cors::AllowOrigin;
 #[derive(Clone)]
 struct AppState {
     db: sqlx::SqlitePool,
-    client: Client,
-    bucket: String,
+    client: Option<Client>,
+    bucket: Option<String>,
 }
 
 impl FromRef<AppState> for sqlx::SqlitePool {
@@ -34,23 +35,36 @@ async fn main() {
     let pool = db::create_pool(&config.database_url).await;
     db::run_migrations(&pool).await;
 
-    let preset = providers::cloudflare_r2(&config.r2_account_id, providers::R2Endpoint::Global)
-        .expect("Failed to create R2 preset");
+    let (client, bucket) =
+        if let (Some(account_id), Some(access_key), Some(secret_key), Some(bucket_name)) = (
+            &config.r2_account_id,
+            &config.r2_access_key,
+            &config.r2_secret_key,
+            &config.r2_bucket,
+        ) {
+            let preset = providers::cloudflare_r2(account_id, providers::R2Endpoint::Global)
+                .expect("Failed to create R2 preset");
 
-    let client = Client::builder(preset.endpoint())
-        .unwrap()
-        .region(preset.region())
-        .addressing_style(preset.addressing_style())
-        .auth(Auth::Static(
-            Credentials::new(&config.r2_access_key, &config.r2_secret_key).unwrap(),
-        ))
-        .build()
-        .expect("Failed to build S3 client");
+            let c = Client::builder(preset.endpoint())
+                .unwrap()
+                .region(preset.region())
+                .addressing_style(preset.addressing_style())
+                .auth(Auth::Static(
+                    Credentials::new(access_key, secret_key).unwrap(),
+                ))
+                .build()
+                .expect("Failed to build S3 client");
+
+            (Some(c), Some(bucket_name))
+        } else {
+            eprintln!("Warning: R2 not configured — media uploads disabled");
+            (None, None)
+        };
 
     let state = AppState {
         db: pool,
         client,
-        bucket: config.r2_bucket,
+        bucket: bucket.cloned(),
     };
 
     let cors = tower_http::cors::CorsLayer::new()
@@ -61,11 +75,17 @@ async fn main() {
 
     let public = Router::new()
         .route("/api/health", get(health_check))
-        .route("/api/auth/login", axum::routing::post(auth::login))
+        .route("/api/auth/status", get(users::status))
+        .route("/api/auth/signup", axum::routing::post(users::signup))
+        .route("/api/auth/signin", axum::routing::post(users::signin))
         .route("/api/auth/logout", axum::routing::post(auth::logout));
 
     let protected = Router::new()
         .route("/api/auth/me", get(auth::me))
+        .route(
+            "/api/auth/password",
+            axum::routing::put(users::change_password),
+        )
         .route(
             "/api/notes",
             get(notes::list_notes).post(notes::create_note),
@@ -81,10 +101,15 @@ async fn main() {
             "/api/media",
             get(media::list_media).post(media::upload_media),
         )
-        .route("/api/media/from-url", axum::routing::post(media::import_from_url))
+        .route(
+            "/api/media/from-url",
+            axum::routing::post(media::import_from_url),
+        )
         .route(
             "/api/media/{id}",
-            get(media::get_media).delete(media::delete_media).put(media::update_media),
+            get(media::get_media)
+                .delete(media::delete_media)
+                .put(media::update_media),
         )
         .route("/api/media/{id}/file", get(media::serve_media_file))
         .route(

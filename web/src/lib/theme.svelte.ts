@@ -38,8 +38,8 @@ export async function loadFromServer() {
   try {
     const res = await api("/api/preferences");
     if (res.ok) {
-      const data = await res.json();
-      if (data.theme && themes.some((t: Theme) => t.id === data.theme)) {
+      const data = (await res.json()) as { theme?: string };
+      if (data.theme && themes.some((theme) => theme.id === data.theme)) {
         applyTheme(data.theme as Theme);
       }
     }

@@ -6,10 +6,10 @@ pub struct Config {
     pub host: String,
     pub port: u16,
     pub frontend_url: String,
-    pub r2_bucket: String,
-    pub r2_account_id: String,
-    pub r2_access_key: String,
-    pub r2_secret_key: String,
+    pub r2_bucket: Option<String>,
+    pub r2_account_id: Option<String>,
+    pub r2_access_key: Option<String>,
+    pub r2_secret_key: Option<String>,
 }
 
 impl Config {
@@ -23,10 +23,10 @@ impl Config {
                 .expect("PORT must be a number"),
             frontend_url: env::var("FRONTEND_URL")
                 .unwrap_or_else(|_| "http://localhost:5173".into()),
-            r2_bucket: env::var("R2_BUCKET").expect("R2_BUCKET must be set"),
-            r2_account_id: env::var("R2_ACCOUNT_ID").expect("R2_ACCOUNT_ID must be set"),
-            r2_access_key: env::var("R2_ACCESS_KEY").expect("R2_ACCESS_KEY must be set"),
-            r2_secret_key: env::var("R2_SECRET_KEY").expect("R2_SECRET_KEY must be set"),
+            r2_bucket: env::var("R2_BUCKET").ok().filter(|v| !v.is_empty()),
+            r2_account_id: env::var("R2_ACCOUNT_ID").ok().filter(|v| !v.is_empty()),
+            r2_access_key: env::var("R2_ACCESS_KEY").ok().filter(|v| !v.is_empty()),
+            r2_secret_key: env::var("R2_SECRET_KEY").ok().filter(|v| !v.is_empty()),
         }
     }
 }

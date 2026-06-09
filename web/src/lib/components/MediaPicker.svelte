@@ -43,7 +43,7 @@
   }
 
   function mediaUrl(item: MediaItem) {
-    return `${import.meta.env.VITE_API_URL || "http://localhost:3001"}/api/media/${item.id}/file`;
+    return `${import.meta.env.VITE_API_URL ?? "http://localhost:3001"}/api/media/${item.id}/file`;
   }
 
   function fileTypeIcon(mime: string) {
@@ -68,6 +68,7 @@
     class="rounded-lg border shadow-2xl w-[600px] max-h-[80vh] flex flex-col"
     style="background: var(--bg-sidebar); border-color: var(--border-color);"
     role="dialog"
+    tabindex="-1"
     onclick={(e) => e.stopPropagation()}
   >
     <div class="flex items-center justify-between p-3 border-b" style="border-color: var(--border-color);">

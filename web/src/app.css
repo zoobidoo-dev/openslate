@@ -1,6 +1,9 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
+/* KaTeX */
+@import "katex/dist/katex.min.css";
+
 /* ===== Theme Variables ===== */
 
 :root,
@@ -469,6 +472,63 @@ body {
   color: var(--text-primary);
 }
 
+/* ===== KaTeX theme-aware color overrides ===== */
+
+.katex {
+  color: var(--text-primary);
+}
+
+.katex .katex-html > .newline + .base {
+  color: var(--text-primary);
+}
+
+.katex .mord,
+.katex .mbin,
+.katex .mrel,
+.katex .mopen,
+.katex .mclose,
+.katex .mpunct,
+.katex .minner,
+.katex .mop,
+.katex .mord.mathnormal,
+.katex .mtext,
+.katex .mathcal,
+.katex .mathbb,
+.katex .mathfrak,
+.katex .mathbf,
+.katex .mathit,
+.katex .mathrm,
+.katex .mathsf,
+.katex .mathtt,
+.katex .mathnormal {
+  color: var(--text-primary);
+}
+
+.katex .accent > .vlist-t {
+  color: var(--text-primary);
+}
+
+.katex .accent-body {
+  color: var(--text-primary);
+}
+
+.katex .hline {
+  border-bottom-color: var(--border-color);
+}
+
+.katex .vlist-t2 > .vlist-r > .vlist {
+  color: var(--text-primary);
+}
+
+.katex .stretchy {
+  color: var(--text-primary);
+}
+
+/* KaTeX error fallback */
+.katex .katex-error {
+  color: var(--text-danger);
+}
+
 /* ===== Theme-aware utility classes ===== */
 
 .bg-page { background: var(--bg-page); }
@@ -488,293 +548,95 @@ body {
 
 .border-theme { border-color: var(--border-color); }
 
-/* ===== Tiptap / ProseMirror styles ===== */
+/* ===== CodeMirror styles ===== */
 
-.tiptap-editor {
-  outline: none !important;
-  box-shadow: none !important;
-
-  &:focus-within {
-    outline: none !important;
-    box-shadow: none !important;
-  }
-  .editor-content {
-    outline: none !important;
-    box-shadow: none !important;
-    min-height: 200px;
-    color: var(--text-primary);
-    caret-color: var(--text-primary);
-
-    > * + * {
-      margin-top: 0.75em;
-    }
-  }
-
-  .editor-content p.is-editor-empty:first-child::before {
-    content: attr(data-placeholder);
-    float: left;
-    color: var(--editor-placeholder);
-    pointer-events: none;
-    height: 0;
-  }
-
-  .editor-content h1 {
-    font-size: 1.5rem;
-    font-weight: 700;
-    line-height: 1.3;
-  }
-
-  .editor-content h2 {
-    font-size: 1.25rem;
-    font-weight: 600;
-    line-height: 1.35;
-  }
-
-  .editor-content h3 {
-    font-size: 1.1rem;
-    font-weight: 600;
-    line-height: 1.4;
-  }
-
-  .editor-content pre {
-    background: var(--editor-code-bg);
-    border-radius: 6px;
-    padding: 12px 16px;
-    overflow-x: auto;
-    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
-    font-size: 13px;
-    line-height: 1.5;
-    tab-size: 2;
-    color: var(--hljs-color);
-  }
-
-  .editor-content pre code {
-    background: none;
-    color: inherit;
-    font-size: inherit;
-    padding: 0;
-    border-radius: 0;
-  }
-
-  .editor-content code {
-    background: var(--editor-inline-code-bg);
-    border-radius: 3px;
-    padding: 2px 6px;
-    font-size: 0.875em;
-    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
-  }
-
-  .editor-content blockquote {
-    border-left: 4px solid var(--editor-blockquote-border);
-    background: var(--editor-blockquote-bg);
-    border-radius: 0 8px 8px 0;
-    padding: 12px 16px;
-    margin: 1.25em 0;
-    color: var(--editor-blockquote-color);
-    font-style: italic;
-    line-height: 1.6;
-  }
-
-  .editor-content blockquote p {
-    margin: 0;
-  }
-
-  .editor-content blockquote p + p {
-    margin-top: 0.75em;
-  }
-
-  .editor-content hr {
-    border: none;
-    border-top: 1px solid var(--editor-hr-color);
-    margin: 1.5em 0;
-  }
-
-  .editor-content ul[data-type="taskList"] {
-    list-style: none;
-    padding-left: 0;
-  }
-
-  .editor-content ul[data-type="taskList"] li {
-    display: flex;
-    align-items: flex-start;
-    gap: 8px;
-  }
-
-  .editor-content ul[data-type="taskList"] li > label {
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 18px;
-    height: 18px;
-    flex-shrink: 0;
-    padding-top: 3px;
-    cursor: pointer;
-  }
-
-  .editor-content ul[data-type="taskList"] li > label input[type="checkbox"] {
-    position: absolute;
-    opacity: 0;
-    width: 100%;
-    height: 100%;
-    cursor: pointer;
-    margin: 0;
-    padding: 0;
-    z-index: 1;
-  }
-
-  .editor-content ul[data-type="taskList"] li > label::before {
-    content: "";
-    position: absolute;
-    width: 16px;
-    height: 16px;
-    border: 1.5px solid var(--border-input);
-    border-radius: 3px;
-    background: transparent;
-    pointer-events: none;
-    transition: background 0.15s, border-color 0.15s;
-    box-sizing: border-box;
-  }
-
-  .editor-content ul[data-type="taskList"] li[data-checked="true"] > label::before {
-    background: var(--editor-tasklist-checkbox);
-    border-color: var(--editor-tasklist-checkbox);
-  }
-
-  .editor-content ul[data-type="taskList"] li[data-checked="true"] > label::after {
-    content: "";
-    position: absolute;
-    width: 5px;
-    height: 9px;
-    border: solid var(--bg-page);
-    border-width: 0 2px 2px 0;
-    transform: rotate(45deg) translate(-1px, -1px);
-    top: 5px;
-    pointer-events: none;
-  }
-
-  .editor-content ul[data-type="taskList"] li > div {
-    flex: 1;
-  }
-
-  .editor-content ul[data-type="taskList"] li > div p {
-    margin: 0;
-  }
-
-  .editor-content a {
-    color: var(--editor-link-color);
-    text-decoration: underline;
-    cursor: pointer;
-  }
-
-  /* Tables */
-  --default-cell-min-width: 60px;
-
-  .editor-content .tableWrapper {
-    overflow-x: auto;
-  }
-
-  .editor-content table {
-    border-collapse: collapse;
-    table-layout: fixed;
-    width: 100%;
-    margin: 1em 0;
-    overflow: hidden;
-  }
-
-  .editor-content th,
-  .editor-content td {
-    border: 1px solid var(--border-color);
-    padding: 8px 12px;
-    text-align: left;
-    vertical-align: top;
-    min-width: var(--default-cell-min-width);
-    box-sizing: border-box;
-    position: relative;
-  }
-
-  .editor-content th {
-    background: var(--bg-note-hover);
-    font-weight: 600;
-  }
-
-  .editor-content table * {
-    color: var(--text-primary);
-  }
-
-  .editor-content .selectedCell:after {
-    z-index: 2;
-    position: absolute;
-    content: "";
-    left: 0;
-    right: 0;
-    top: 0;
-    bottom: 0;
-    background: var(--editor-selection-bg);
-    pointer-events: none;
-  }
-
-  .editor-content .column-resize-handle {
-    position: absolute;
-    right: -2px;
-    top: 0;
-    bottom: 0;
-    width: 4px;
-    z-index: 20;
-    background: var(--border-color);
-    pointer-events: none;
-  }
-
-  .editor-content.resize-cursor {
-    cursor: col-resize;
-  }
-
-  .editor-content ul,
-  .editor-content ol {
-    padding-left: 1.5em;
-  }
-
-  .editor-content *::selection {
-    background: var(--editor-selection-bg);
-  }
-
-  .editor-content pre *::selection {
-    background: var(--editor-selection-bg);
-  }
-
-  /* Override prose typography colors for theme support */
-  .editor-content {
-    --tw-prose-body: var(--text-primary);
-    --tw-prose-headings: var(--text-primary);
-    --tw-prose-links: var(--editor-link-color);
-    --tw-prose-bold: var(--text-primary);
-    --tw-prose-counters: var(--text-secondary);
-    --tw-prose-bullets: var(--text-secondary);
-    --tw-prose-hr: var(--editor-hr-color);
-    --tw-prose-quotes: var(--text-primary);
-    --tw-prose-quote-borders: var(--editor-blockquote-border);
-    --tw-prose-captions: var(--text-secondary);
-    --tw-prose-code: var(--text-primary);
-    --tw-prose-pre-code: var(--hljs-color);
-    --tw-prose-pre-bg: var(--editor-code-bg);
-    --tw-prose-th-borders: var(--border-color);
-    --tw-prose-td-borders: var(--border-color);
-  }
+.cm-editor {
+  height: 100%;
 }
 
-/* ===== Remove focus ring from ProseMirror ===== */
-
-.ProseMirror,
-.ProseMirror:focus,
-.ProseMirror:focus-visible,
-.ProseMirror-focused {
-  outline: none !important;
-  box-shadow: none !important;
+.cm-editor .cm-content {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 14px;
+  line-height: 1.6;
 }
 
-.ProseMirror-selectednode {
-  outline: none !important;
+/* ===== Markdown preview styles ===== */
+
+.markdown-preview {
+  color: var(--text-primary);
+  line-height: 1.7;
+  font-size: 15px;
 }
+
+.markdown-preview h1 { font-size: 1.5rem; font-weight: 700; margin: 1em 0 0.5em; }
+.markdown-preview h2 { font-size: 1.25rem; font-weight: 600; margin: 1em 0 0.5em; }
+.markdown-preview h3 { font-size: 1.1rem; font-weight: 600; margin: 1em 0 0.5em; }
+.markdown-preview p { margin: 0.5em 0; }
+.markdown-preview a { color: var(--editor-link-color); }
+.markdown-preview blockquote {
+  border-left: 4px solid var(--editor-blockquote-border);
+  background: var(--editor-blockquote-bg);
+  border-radius: 0 8px 8px 0;
+  padding: 8px 16px;
+  margin: 1em 0;
+  color: var(--editor-blockquote-color);
+}
+.markdown-preview blockquote p { margin: 0.25em 0; }
+.markdown-preview pre {
+  background: var(--editor-code-bg);
+  border-radius: 6px;
+  padding: 12px 16px;
+  overflow-x: auto;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.markdown-preview code {
+  background: var(--editor-inline-code-bg);
+  border-radius: 3px;
+  padding: 2px 5px;
+  font-size: 0.875em;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+.markdown-preview pre code {
+  background: none;
+  padding: 0;
+  font-size: inherit;
+}
+.markdown-preview hr {
+  border: none;
+  border-top: 1px solid var(--editor-hr-color);
+  margin: 1.5em 0;
+}
+.markdown-preview ul {
+  list-style: disc;
+  padding-left: 1.5em;
+  margin: 0.5em 0;
+}
+.markdown-preview ol {
+  list-style: decimal;
+  padding-left: 1.5em;
+  margin: 0.5em 0;
+}
+.markdown-preview li {
+  margin: 0.25em 0;
+}
+.markdown-preview li > p {
+  margin: 0;
+}
+.markdown-preview table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1em 0;
+}
+.markdown-preview th, .markdown-preview td {
+  border: 1px solid var(--border-color);
+  padding: 6px 12px;
+  text-align: left;
+}
+.markdown-preview th { background: var(--bg-note-hover); font-weight: 600; }
+.markdown-preview img { max-width: 100%; border-radius: 4px; }
+.markdown-preview .katex-display { margin: 1em 0; overflow-x: auto; }
+.markdown-preview input[type="checkbox"] { margin-right: 6px; }
 
 /* ===== Sidebar ===== */
 

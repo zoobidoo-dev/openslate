@@ -1,0 +1,11 @@
+:8080 {
+	handle /api/* {
+		reverse_proxy localhost:3001
+	}
+
+	handle {
+		root * /srv/frontend
+		try_files {path} /index.html
+		file_server
+	}
+}

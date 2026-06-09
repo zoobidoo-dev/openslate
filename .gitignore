@@ -15,3 +15,6 @@ cookies.txt
 
 # OS
 .DS_Store
+
+# mdBook build output
+book/

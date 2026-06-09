@@ -64,3 +64,90 @@ pub async fn search_notes(
 
     Ok(Json(results))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use sqlx::SqlitePool;
+    use sqlx::sqlite::SqlitePoolOptions;
+
+    async fn setup_db() -> SqlitePool {
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .expect("failed to create pool");
+
+        sqlx::query(
+            "CREATE TABLE notes (
+                id TEXT PRIMARY KEY,
+                title TEXT NOT NULL,
+                slug TEXT UNIQUE NOT NULL,
+                content TEXT NOT NULL DEFAULT '',
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+            )",
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+
+        sqlx::query(
+            "CREATE VIRTUAL TABLE notes_fts USING fts5(
+                id UNINDEXED,
+                title,
+                content,
+                tokenize='porter unicode61'
+            )",
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+
+        sqlx::query(
+            "CREATE TRIGGER IF NOT EXISTS notes_ai AFTER INSERT ON notes BEGIN
+                INSERT INTO notes_fts (id, title, content) VALUES (new.id, new.title, new.content);
+            END",
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+
+        // Insert a sample note (trigger populates notes_fts)
+        sqlx::query(
+            "INSERT INTO notes (id, title, slug, content) VALUES ('1', 'Hello World', 'hello-world', 'This is a test note')",
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+
+        pool
+    }
+
+    #[tokio::test]
+    async fn test_search_finds_matching() {
+        let db = setup_db().await;
+        let params = SearchParams { q: "hello".into() };
+        let results = search_notes(State(db), Query(params)).await.unwrap();
+        assert!(!results.is_empty());
+        assert_eq!(results[0].title, "Hello World");
+    }
+
+    #[tokio::test]
+    async fn test_search_empty_query() {
+        let db = setup_db().await;
+        let params = SearchParams { q: "".into() };
+        let results = search_notes(State(db), Query(params)).await.unwrap();
+        assert!(results.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_search_no_match() {
+        let db = setup_db().await;
+        let params = SearchParams {
+            q: "zzznotfound".into(),
+        };
+        let results = search_notes(State(db), Query(params)).await.unwrap();
+        assert!(results.is_empty());
+    }
+}

@@ -19,8 +19,21 @@ export async function checkAuth(): Promise<void> {
   }
 }
 
+async function hasUsers(): Promise<boolean> {
+  try {
+    const res = await api("/api/auth/status");
+    if (res.ok) {
+      const data = await res.json();
+      return data.has_users === true;
+    }
+  } catch {}
+  return true;
+}
+
 export async function login(password: string): Promise<boolean> {
-  const res = await api("/api/auth/login", {
+  const exists = await hasUsers();
+  const endpoint = exists ? "/api/auth/signin" : "/api/auth/signup";
+  const res = await api(endpoint, {
     method: "POST",
     body: JSON.stringify({ password }),
   });
