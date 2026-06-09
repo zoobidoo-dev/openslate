@@ -4,7 +4,7 @@
   import * as auth from "$lib/auth.svelte";
   import * as theme from "$lib/theme.svelte";
   import { goto } from "$app/navigation";
-  import TiptapEditor from "$lib/components/TiptapEditor.svelte";
+  import MarkdownEditor from "$lib/components/MarkdownEditor.svelte";
   import MediaGallery from "$lib/components/MediaGallery.svelte";
   import MediaPicker from "$lib/components/MediaPicker.svelte";
   import CommandPalette from "$lib/components/CommandPalette.svelte";
@@ -506,7 +506,7 @@
           class="text-sm outline-none border-b pb-2"
           style="color: var(--text-secondary); caret-color: var(--text-primary); border-color: var(--border-color); background: transparent;"
         />
-        <TiptapEditor
+        <MarkdownEditor
           content={editContent}
           noteId={selected?.id ?? ""}
           insertMediaMd={mediaToInsertMd}
