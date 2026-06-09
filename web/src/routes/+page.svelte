@@ -196,7 +196,7 @@
   }
 
   function handleMediaSelect(item: { id: string; original_name: string; mime_type: string }) {
-    const url = `${import.meta.env.VITE_API_URL || "http://localhost:3001"}/api/media/${item.id}/file`;
+    const url = `${import.meta.env.VITE_API_URL ?? "http://localhost:3001"}/api/media/${item.id}/file`;
     const md = item.mime_type.startsWith("image/")
       ? `![${item.original_name}](${url})`
       : `[${item.original_name}](${url})`;
@@ -222,7 +222,7 @@
   }
 
   async function removeNoteMedia(m: { id: string }) {
-    const url = `${import.meta.env.VITE_API_URL || "http://localhost:3001"}/api/media/${m.id}/file`;
+    const url = `${import.meta.env.VITE_API_URL ?? "http://localhost:3001"}/api/media/${m.id}/file`;
     await api(`/api/media/${m.id}`, { method: "PUT", body: JSON.stringify({ note_id: "" }) });
     const escaped = url.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     editContent = editContent.replace(new RegExp(`!\\[.*?\\]\\(${escaped}\\)|\\[.*?\\]\\(${escaped}\\)`, "g"), "");
@@ -522,7 +522,7 @@
               {#each noteMedia as m}
                 <div class="inline-flex items-center gap-1">
                   <a
-                    href={`${import.meta.env.VITE_API_URL || "http://localhost:3001"}/api/media/${m.id}/file`}
+                    href={`${import.meta.env.VITE_API_URL ?? "http://localhost:3001"}/api/media/${m.id}/file`}
                     target="_blank"
                     rel="noreferrer"
                     class="text-xs px-2 py-1 rounded border inline-flex items-center gap-1 hover:opacity-80"

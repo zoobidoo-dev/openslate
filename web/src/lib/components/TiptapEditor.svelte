@@ -51,7 +51,7 @@
       const res = await uploadFile("/api/media", file, extra);
       if (res.ok) {
         const data = await res.json();
-        const url = `${import.meta.env.VITE_API_URL || "http://localhost:3001"}/api/media/${data.id}/file`;
+        const url = `${import.meta.env.VITE_API_URL ?? "http://localhost:3001"}/api/media/${data.id}/file`;
         if (editor) {
           if (file.type.startsWith("image/")) {
             editor.chain().focus().setImage({ src: url }).run();

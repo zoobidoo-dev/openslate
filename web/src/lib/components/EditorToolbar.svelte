@@ -77,7 +77,7 @@
       });
       if (res.ok) {
         const data = await res.json();
-        const mediaUrl = `${import.meta.env.VITE_API_URL || "http://localhost:3001"}/api/media/${data.id}/file`;
+        const mediaUrl = `${import.meta.env.VITE_API_URL ?? "http://localhost:3001"}/api/media/${data.id}/file`;
         editor.chain().focus().setImage({ src: mediaUrl }).run();
         onImportComplete?.();
         showMediaMenu = false;
