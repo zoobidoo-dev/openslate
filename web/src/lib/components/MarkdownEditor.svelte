@@ -239,6 +239,7 @@
 
     const extensions = [
       basicSetup,
+      EditorView.lineWrapping,
       markdown(),
       modeToggleKeymap,
       cmTheme,
