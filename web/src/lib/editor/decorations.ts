@@ -102,6 +102,29 @@ class ImageWidget extends WidgetType {
   }
 }
 
+// ── Table widget ──
+
+class TableWidget extends WidgetType {
+  constructor(readonly html: string) {
+    super();
+  }
+
+  eq(other: TableWidget): boolean {
+    return this.html === other.html;
+  }
+
+  toDOM(): HTMLElement {
+    const wrapper = document.createElement("div");
+    wrapper.className = "cm-lp-table-wrapper";
+    wrapper.innerHTML = this.html;
+    return wrapper;
+  }
+
+  ignoreEvent(): boolean {
+    return false;
+  }
+}
+
 class TaskCheckboxWidget extends WidgetType {
   constructor(readonly checked: boolean) {
     super();
@@ -171,6 +194,56 @@ function pushReplace(
   }
 }
 
+// ── Table HTML builder ──
+
+function buildTableHTML(raw: string): string {
+  const lines = raw.trim().split("\n").filter((l) => l.trim());
+  if (lines.length < 2) return "";
+
+  // Skip separator lines (|---|---|)
+  const rows = lines
+    .filter((l) => !/^\s*\|?\s*[-:| ]+\s*\|?\s*$/.test(l))
+    .map((l) =>
+      l
+        .trim()
+        .replace(/^\||\|$/g, "") // Remove leading/trailing pipes
+        .split("|")
+        .map((c) => c.trim()),
+    );
+
+  if (rows.length === 0) return "";
+
+  const firstRow = rows[0];
+  const isHeader = rows.length >= 2;
+  const dataRows = isHeader ? rows.slice(1) : rows;
+
+  let html = '<table class="cm-lp-table">';
+  if (isHeader) {
+    html += "<thead><tr>";
+    for (const cell of firstRow) {
+      html += `<th>${escapeHtml(cell)}</th>`;
+    }
+    html += "</tr></thead>";
+  }
+  html += "<tbody>";
+  for (const row of dataRows) {
+    html += "<tr>";
+    for (const cell of row) {
+      html += `<td>${escapeHtml(cell)}</td>`;
+    }
+    html += "</tr>";
+  }
+  html += "</tbody></table>";
+  return html;
+}
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
 // ── Core decoration builder ──
 
 function buildDecorations(view: EditorView): DecorationSet {
@@ -208,6 +281,29 @@ function buildDecorations(view: EditorView): DecorationSet {
         }
         if (anyActive) {
           for (let n = firstLine; n <= lastLine; n++) activeLines.add(n);
+        }
+      }
+
+      // ── Table — replace with rendered HTML table widget ──
+      if (name === "Table" && nFrom < nTo) {
+        const firstLine = doc.lineAt(nFrom).number;
+        const lastLine = doc.lineAt(Math.max(nFrom, nTo - 1)).number;
+        let anyActive = false;
+        for (let n = firstLine; n <= lastLine; n++) {
+          if (activeLines.has(n)) {
+            anyActive = true;
+            break;
+          }
+        }
+        if (!anyActive) {
+          const tableText = doc.sliceString(nFrom, nTo);
+          const html = buildTableHTML(tableText);
+          if (html) {
+            pushReplace(ranges, doc, nFrom, nTo, {
+              widget: new TableWidget(html),
+            });
+            return false; // Skip child nodes
+          }
         }
       }
 

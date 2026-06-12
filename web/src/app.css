@@ -660,6 +660,36 @@ body {
   vertical-align: middle;
 }
 
+/* ── Tables ── */
+
+.cm-lp-table-wrapper {
+  overflow-x: auto;
+  margin: 8px 0;
+}
+
+.cm-lp-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.9em;
+}
+
+.cm-lp-table th,
+.cm-lp-table td {
+  border: 1px solid var(--border-color);
+  padding: 6px 12px;
+  text-align: left;
+}
+
+.cm-lp-table th {
+  background: var(--bg-note-hover);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.cm-lp-table td {
+  color: var(--text-primary);
+}
+
 /* ===== Markdown preview styles ===== */
 
 .markdown-preview {
