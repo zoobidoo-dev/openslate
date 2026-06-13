@@ -162,8 +162,8 @@ export async function loadFromServer() {
         prefs.noteSort = data.noteSort as NoteSort;
       }
     }
-  } catch {
-    // use defaults
+  } catch (e) {
+    console.error("Failed to load preferences:", e);
   }
   loaded = true;
   applyEditorCSS();
@@ -181,11 +181,12 @@ export async function setPreference<K extends keyof Preferences>(key: K, value: 
   (prefs as unknown as Record<string, unknown>)[key] = value;
   applyEditorCSS();
   try {
-    await api("/api/preferences", {
+    const res = await api("/api/preferences", {
       method: "PUT",
       body: JSON.stringify({ [key]: value }),
     });
-  } catch {
-    // will sync next load
+    if (!res.ok) console.error("Failed to save preference:", key, res.status);
+  } catch (e) {
+    console.error("Failed to save preference:", key, e);
   }
 }
