@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { X, Code } from "@lucide/svelte";
+  import { X, Code, ToggleLeft, ToggleRight } from "@lucide/svelte";
   import * as prefs from "$lib/preferences.svelte";
   import * as theme from "$lib/theme.svelte";
 
@@ -212,18 +212,15 @@
             <span class="text-xs" style="color: var(--text-secondary);">Line numbers</span>
             <button
               onclick={() => prefs.setPreference("editorLineNumbers", !currentPrefs.editorLineNumbers)}
-              class="relative w-9 h-5 rounded-full cursor-pointer transition-colors border"
-              style={currentPrefs.editorLineNumbers
-                ? "background: var(--bg-btn-primary); border-color: var(--bg-btn-primary);"
-                : "background: var(--bg-tag); border-color: var(--border-color);"}
-              role="switch"
-              aria-checked={currentPrefs.editorLineNumbers}
+              class="cursor-pointer"
+              style="color: var(--text-secondary);"
               aria-label="Toggle line numbers"
             >
-              <span
-                class="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform"
-                style={currentPrefs.editorLineNumbers ? "left: 18px;" : "left: 2px;"}
-              ></span>
+              {#if currentPrefs.editorLineNumbers}
+                <ToggleRight size={24} style="color: var(--bg-btn-primary);" />
+              {:else}
+                <ToggleLeft size={24} />
+              {/if}
             </button>
           </div>
         </section>
