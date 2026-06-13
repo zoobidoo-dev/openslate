@@ -4,10 +4,11 @@ export const editorTheme = EditorView.theme(
   {
     "&": {
       height: "100%",
-      fontSize: "14px",
     },
     ".cm-content": {
-      fontFamily: "ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace",
+      fontFamily: "var(--editor-font-family)",
+      fontSize: "var(--editor-font-size)",
+      lineHeight: "var(--editor-line-height)",
       padding: "12px 16px",
       caretColor: "var(--text-primary)",
       color: "var(--text-primary)",

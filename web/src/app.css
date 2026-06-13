@@ -623,10 +623,28 @@ body {
   height: 100%;
 }
 
+/* ── Editor preferences (CSS variable defaults) ── */
+:root {
+  --editor-font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  --editor-font-size: 14px;
+  --editor-line-height: 1.6;
+}
+
 .cm-editor .cm-content {
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
-  font-size: 14px;
-  line-height: 1.6;
+  font-family: var(--editor-font-family);
+  font-size: var(--editor-font-size);
+  line-height: var(--editor-line-height);
+}
+
+/* ── Editor width: constrained ── */
+.editor-width-constrained .cm-editor .cm-scroller {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+/* ── Hide line numbers ── */
+.hide-line-numbers .cm-editor .cm-gutters {
+  display: none;
 }
 
 /* ===== Live Preview Decorations ===== */

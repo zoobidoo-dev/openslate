@@ -2,6 +2,7 @@
   import "../app.css";
   import * as auth from "$lib/auth.svelte";
   import * as theme from "$lib/theme.svelte";
+  import * as prefs from "$lib/preferences.svelte";
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
 
@@ -25,6 +26,7 @@
   $effect(() => {
     if (auth.isAuthenticated()) {
       theme.loadFromServer();
+      prefs.loadFromServer();
     }
   });
 </script>

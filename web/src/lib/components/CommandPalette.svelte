@@ -1,7 +1,7 @@
 <script lang="ts">
   import * as theme from "$lib/theme.svelte";
 
-  let { open, onClose, onCreateNote, onSave, onFocusSearch, onSwitchTab, onSetTheme, onLogout }: {
+  let { open, onClose, onCreateNote, onSave, onFocusSearch, onSwitchTab, onSetTheme, onLogout, onOpenSettings }: {
     open: boolean;
     onClose: () => void;
     onCreateNote: () => void;
@@ -10,6 +10,7 @@
     onSwitchTab: (tab: "notes" | "media") => void;
     onSetTheme: (t: theme.Theme) => void;
     onLogout: () => void;
+    onOpenSettings: () => void;
   } = $props();
 
   let searchQuery = $state("");
@@ -30,6 +31,7 @@
     { id: "save", label: "Save current note", shortcut: "⌘⇧S / Ctrl+Shift+S", action: () => { onSave(); onClose(); } },
     { id: "media", label: "Media gallery", shortcut: "⌘⇧G / Ctrl+Shift+G", action: () => { onSwitchTab("media"); onClose(); } },
     { id: "notes", label: "Notes list", action: () => { onSwitchTab("notes"); onClose(); } },
+    { id: "settings", label: "Settings", action: () => { onOpenSettings(); onClose(); } },
     ...theme.themes.map((t) => ({
       id: `theme-${t.id}`,
       label: `Theme: ${t.name}`,
