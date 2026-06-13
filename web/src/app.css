@@ -548,6 +548,75 @@ body {
 
 .border-theme { border-color: var(--border-color); }
 
+/* ── Tags ── */
+
+.cm-lp-tag {
+  color: var(--text-link) !important;
+  background: var(--bg-tag);
+  border-radius: 4px;
+  padding: 0 4px;
+  font-weight: 500;
+  font-size: 0.93em;
+}
+
+/* ===== Slash Command Autocomplete ===== */
+
+.cm-tooltip.cm-tooltip-autocomplete {
+  background: var(--bg-sidebar) !important;
+  border: 1px solid var(--border-color) !important;
+  border-radius: 10px !important;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12) !important;
+  padding: 6px 0 !important;
+  min-width: 240px !important;
+  max-height: 320px !important;
+  overflow-y: auto !important;
+  font-family: system-ui, -apple-system, sans-serif !important;
+}
+
+.cm-tooltip-autocomplete ul {
+  font-family: system-ui, -apple-system, sans-serif !important;
+}
+
+.cm-tooltip-autocomplete ul li {
+  padding: 8px 14px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  cursor: pointer !important;
+  font-size: 13.5px !important;
+  line-height: 1.4 !important;
+  border-radius: 0 !important;
+  margin: 0 !important;
+}
+
+.cm-tooltip-autocomplete ul li[aria-selected="true"] {
+  background: var(--bg-note-active) !important;
+  color: var(--text-primary) !important;
+}
+
+.cm-tooltip .cm-completionIcon {
+  display: none !important;
+}
+
+.cm-tooltip .cm-completionLabel {
+  font-weight: 500 !important;
+  color: var(--text-primary) !important;
+  flex-shrink: 0 !important;
+}
+
+.cm-tooltip .cm-completionDetail {
+  color: var(--text-tertiary) !important;
+  font-size: 12.5px !important;
+  margin-left: auto !important;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace !important;
+}
+
+.cm-tooltip .cm-completionMatchedText {
+  font-weight: 600 !important;
+  color: var(--text-link) !important;
+  text-decoration: none !important;
+}
+
 /* ===== CodeMirror styles ===== */
 
 .cm-editor {
@@ -558,6 +627,136 @@ body {
   font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
   font-size: 14px;
   line-height: 1.6;
+}
+
+/* ===== Live Preview Decorations ===== */
+
+/* ── Line-level blocks (unconditional) ── */
+
+.cm-lp-h1,
+.cm-lp-h2,
+.cm-lp-h3,
+.cm-lp-h4,
+.cm-lp-h5,
+.cm-lp-h6 {
+  color: var(--text-primary) !important;
+}
+
+.cm-lp-h1 { font-size: 1.75em !important; font-weight: 700 !important; }
+.cm-lp-h2 { font-size: 1.5em !important; font-weight: 600 !important; }
+.cm-lp-h3 { font-size: 1.25em !important; font-weight: 600 !important; }
+.cm-lp-h4 { font-size: 1.1em !important; font-weight: 600 !important; }
+.cm-lp-h5 { font-size: 1em !important; font-weight: 600 !important; }
+.cm-lp-h6 { font-size: 0.95em !important; font-weight: 600 !important; }
+
+.cm-lp-blockquote-line {
+  border-left: 4px solid var(--editor-blockquote-border) !important;
+  background: var(--editor-blockquote-bg) !important;
+  color: var(--editor-blockquote-color) !important;
+}
+
+.cm-lp-codeblock-line {
+  background: var(--editor-code-bg) !important;
+  color: var(--text-primary) !important;
+}
+
+.cm-lp-hr-line {
+  border-bottom: 1px solid var(--editor-hr-color) !important;
+}
+
+.cm-lp-task-done {
+  color: var(--text-tertiary) !important;
+  text-decoration: line-through !important;
+}
+
+/* ── Inline marks (unconditional) ── */
+
+.cm-lp-bold {
+  font-weight: 700 !important;
+  color: var(--text-primary) !important;
+}
+
+.cm-lp-italic {
+  font-style: italic !important;
+  color: var(--text-primary) !important;
+}
+
+.cm-lp-strikethrough {
+  text-decoration: line-through !important;
+  color: var(--text-secondary) !important;
+}
+
+.cm-lp-inline-code {
+  background: var(--editor-inline-code-bg) !important;
+  color: var(--text-primary) !important;
+  border-radius: 3px;
+  padding: 1px 4px;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.88em;
+}
+
+.cm-lp-link {
+  color: var(--editor-link-color) !important;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+  cursor: pointer !important;
+}
+
+/* ── List markers ── */
+
+.cm-lp-list-marker {
+  display: inline-block;
+  width: 1.2em;
+  text-align: right;
+  margin-right: 0;
+  font-feature-settings: "tnum";
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary) !important;
+}
+
+.cm-lp-bullet {
+  color: var(--text-secondary) !important;
+  font-weight: 700;
+}
+
+.cm-lp-task-checkbox {
+  width: 14px !important;
+  height: 14px !important;
+  margin: 0 6px 0 0 !important;
+  cursor: pointer !important;
+  accent-color: var(--text-link) !important;
+  vertical-align: middle;
+}
+
+/* ── Tables ── */
+
+.cm-lp-table-wrapper {
+  overflow-x: auto;
+  margin: 8px 0;
+}
+
+.cm-lp-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.9em;
+}
+
+.cm-lp-table th,
+.cm-lp-table td {
+  border: 1px solid var(--border-color);
+  padding: 6px 12px;
+  text-align: left;
+}
+
+.cm-lp-table th {
+  background: var(--bg-note-hover);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.cm-lp-table td {
+  color: var(--text-primary);
 }
 
 /* ===== Markdown preview styles ===== */

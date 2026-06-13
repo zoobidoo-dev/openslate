@@ -69,12 +69,10 @@
   let cmdPaletteOpen = $state(false);
   let sidebarCollapsed = $state(false);
 
+  let saveDebounce: ReturnType<typeof setTimeout> | null = null;
+
   onMount(() => {
     loadNotes();
-
-    const interval = setInterval(() => {
-      if (dirty) save();
-    }, 2000);
 
     function onKeydown(e: KeyboardEvent) {
       const mod = e.metaKey || e.ctrlKey;
@@ -132,7 +130,7 @@
     document.addEventListener("keydown", onKeydown, { capture: true });
 
     return () => {
-      clearInterval(interval);
+      if (saveDebounce) clearTimeout(saveDebounce);
       document.removeEventListener("keydown", onKeydown, { capture: true });
     };
   });
@@ -245,6 +243,7 @@
       editTitle = note.title;
       editContent = note.content;
       editTags = note.tags.join(", ");
+      syncTagsField(note.content);
       savedTitle = note.title;
       savedContent = note.content;
       savedTags = note.tags.join(", ");
@@ -308,12 +307,36 @@
     await loadNotes();
   }
 
-  async function save() {
-    if (!selected && !creating) return;
-    const tags = editTags
+  function extractTagsFromContent(md: string): string[] {
+    return [...md.matchAll(/(?:^|\s)#([\w-]+)/g)]
+      .map((m) => m[1].toLowerCase())
+      .filter((t) => !/^\d/.test(t));
+  }
+
+  function mergeTags(): string[] {
+    const manual = editTags
       .split(",")
       .map((t) => t.trim())
       .filter(Boolean);
+    const fromContent = extractTagsFromContent(editContent);
+    return [...new Set([...manual, ...fromContent])];
+  }
+
+  function syncTagsField(md: string) {
+    const autoTags = extractTagsFromContent(md);
+    // Preserve manual tags that don't appear in content
+    const manualOnly = editTags
+      .split(",")
+      .map((t) => t.trim())
+      .filter(Boolean)
+      .filter((t) => !autoTags.includes(t.toLowerCase()));
+    const merged = [...new Set([...autoTags, ...manualOnly])];
+    editTags = merged.join(", ");
+  }
+
+  async function save() {
+    if (!selected && !creating) return;
+    const tags = mergeTags();
 
     if (creating) {
       const res = await api("/api/notes", {
@@ -348,6 +371,8 @@
 
   function markDirty() {
     dirty = true;
+    if (saveDebounce) clearTimeout(saveDebounce);
+    saveDebounce = setTimeout(() => save(), 500);
   }
 
   async function handleLogout() {
@@ -449,7 +474,7 @@
               onclick={() => { clearSearch(); selectNote(result.slug); }}
               class="note-btn text-left"
             >
-              <div class="font-medium truncate">{@html result.title_highlight || result.title}</div>
+              <div class="font-medium break-words">{@html result.title_highlight || result.title}</div>
               {#if result.content_snippet}
                 <div class="text-xs mt-1 line-clamp-2" style="color: var(--text-secondary);">{@html result.content_snippet}</div>
               {/if}
@@ -487,7 +512,7 @@
                 onclick={() => selectNote(note.slug)}
                 class="note-btn"
               >
-                <div class="font-medium truncate">{note.title}</div>
+                <div class="font-medium break-words whitespace-normal">{note.title}</div>
                 <div class="text-xs" style="color: var(--text-secondary);">{formatDate(note.updated_at)}</div>
                 {#if note.tags.length > 0}
                   <div class="flex gap-1 mt-1 flex-wrap">
@@ -542,7 +567,7 @@
           noteId={selected?.id ?? ""}
           insertMediaMd={mediaToInsertMd}
           insertMediaKey={mediaInsertKey}
-          onContentChange={(md) => { editContent = md; markDirty(); }}
+          onContentChange={(md) => { editContent = md; syncTagsField(md); markDirty(); }}
           onOpenMediaPicker={openMediaPicker}
           onUploadComplete={() => { if (selected?.id) loadNoteMedia(selected.id); }}
         />
