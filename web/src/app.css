@@ -1716,3 +1716,107 @@ body {
   background: var(--border-color);
   border-radius: 3px;
 }
+
+/* ===== Editor Tab Bar ===== */
+
+.tab-bar {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-toolbar);
+  overflow-x: auto;
+  overflow-y: hidden;
+  flex-shrink: 0;
+  scrollbar-width: thin;
+}
+
+.tab-bar::-webkit-scrollbar {
+  height: 3px;
+}
+
+.tab-bar::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 2px;
+}
+
+.tab-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px 6px 12px;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-right: 1px solid var(--border-color);
+  background: transparent;
+  white-space: nowrap;
+  user-select: none;
+  min-width: 0;
+  flex-shrink: 0;
+  position: relative;
+  transition: background 0.1s;
+}
+
+.tab-item:hover {
+  background: var(--bg-note-hover);
+}
+
+.tab-item.active {
+  background: var(--bg-editor);
+  color: var(--text-primary);
+  border-bottom: 2px solid var(--text-link);
+  margin-bottom: -1px;
+}
+
+.tab-item.active .tab-close {
+  opacity: 1;
+}
+
+.tab-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 160px;
+}
+
+.tab-dirty {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-link);
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.1s;
+}
+
+.tab-dirty.visible {
+  opacity: 1;
+}
+
+.tab-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 3px;
+  border: none;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.1s, background 0.1s;
+}
+
+.tab-item:hover .tab-close,
+.tab-item.active .tab-close {
+  opacity: 1;
+}
+
+.tab-close:hover {
+  background: var(--bg-note-hover);
+  color: var(--text-primary);
+}
