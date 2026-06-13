@@ -14,6 +14,18 @@
   let currentPrefs = $derived(prefs.getPreferences());
   let currentTheme = $derived(theme.getTheme());
 
+  let fontGroups = $derived(
+    prefs.FONTS.reduce<{ group: string; fonts: prefs.FontEntry[] }[]>((acc, f) => {
+      const last = acc[acc.length - 1];
+      if (last && last.group === f.group) {
+        last.fonts.push(f);
+      } else {
+        acc.push({ group: f.group, fonts: [f] });
+      }
+      return acc;
+    }, []),
+  );
+
   function handleKeydown(e: KeyboardEvent) {
     if (e.key === "Escape") {
       onClose();
@@ -58,21 +70,22 @@
 
           <!-- Font family -->
           <div class="mb-3">
-            <label class="text-xs block mb-1.5" style="color: var(--text-secondary);">Font</label>
-            <div class="flex gap-1.5">
-              {#each (["monospace", "sans-serif", "serif"] as const) as font}
-                <button
-                  onclick={() => prefs.setPreference("editorFont", font)}
-                  class="text-xs px-3 py-1.5 rounded border cursor-pointer transition-colors"
-                  class:active={currentPrefs.editorFont === font}
-                  style={currentPrefs.editorFont === font
-                    ? "background: var(--bg-btn-primary); color: var(--text-btn-primary); border-color: var(--bg-btn-primary);"
-                    : "background: transparent; color: var(--text-secondary); border-color: var(--border-color);"}
-                >
-                  {prefs.FONT_LABELS[font]}
-                </button>
+            <label class="text-xs block mb-1.5" for="font-select" style="color: var(--text-secondary);">Font</label>
+            <select
+              id="font-select"
+              value={currentPrefs.editorFont}
+              onchange={(e) => prefs.setPreference("editorFont", (e.target as HTMLSelectElement).value)}
+              class="w-full text-xs px-2 py-1.5 rounded border outline-none cursor-pointer"
+              style="color: var(--text-primary); background: var(--bg-editor); border-color: var(--border-input);"
+            >
+              {#each fontGroups as group}
+                <optgroup label={group.group}>
+                  {#each group.fonts as font}
+                    <option value={font.id}>{font.label}</option>
+                  {/each}
+                </optgroup>
               {/each}
-            </div>
+            </select>
           </div>
 
           <!-- Font size -->
