@@ -48,21 +48,22 @@ const openslateHighlight = HighlightStyle.define([
   { tag: t.separator, color: "var(--border-color)" },
 
   // ── Code block token highlights ──
-  { tag: t.keyword, color: "var(--text-link)", fontWeight: "500" },
-  { tag: [t.modifier, t.operatorKeyword, t.controlKeyword, t.definitionKeyword], color: "var(--text-link)" },
-  { tag: [t.string, t.special(t.string)], color: "var(--text-secondary)" },
-  { tag: [t.number, t.integer, t.float, t.bool, t.null, t.atom], color: "var(--text-link)" },
-  { tag: [t.comment, t.lineComment, t.blockComment, t.docComment], color: "var(--text-tertiary)", fontStyle: "italic" },
-  { tag: [t.typeName, t.className, t.namespace], color: "var(--text-link)" },
-  { tag: [t.function(t.variableName), t.function(t.propertyName), t.macroName], color: "var(--text-primary)" },
-  { tag: [t.propertyName, t.attributeName, t.definition(t.propertyName)], color: "var(--text-link)" },
-  { tag: t.regexp, color: "var(--text-danger)" },
-  { tag: t.escape, color: "var(--text-link)" },
-  { tag: [t.tagName, t.angleBracket], color: "var(--text-link)" },
-  { tag: [t.variableName, t.labelName, t.definition(t.variableName), t.local(t.variableName)], color: "var(--text-primary)" },
-  { tag: t.operator, color: "var(--text-secondary)" },
-  { tag: [t.attributeValue, t.character], color: "var(--text-secondary)" },
-  { tag: t.invalid, color: "var(--text-danger)" },
+  // Uses --hljs-* variables so each token type gets a distinct, theme-appropriate color.
+  { tag: t.keyword, color: "var(--hljs-keyword)", fontWeight: "500" },
+  { tag: [t.modifier, t.operatorKeyword, t.controlKeyword, t.definitionKeyword], color: "var(--hljs-keyword)" },
+  { tag: [t.string, t.special(t.string)], color: "var(--hljs-string)" },
+  { tag: [t.number, t.integer, t.float, t.bool, t.null, t.atom], color: "var(--hljs-number)" },
+  { tag: [t.comment, t.lineComment, t.blockComment, t.docComment], color: "var(--hljs-comment)", fontStyle: "italic" },
+  { tag: [t.typeName, t.className, t.namespace], color: "var(--hljs-type)" },
+  { tag: [t.function(t.variableName), t.function(t.propertyName), t.macroName], color: "var(--hljs-title)" },
+  { tag: [t.propertyName, t.attributeName, t.definition(t.propertyName)], color: "var(--hljs-attr)" },
+  { tag: t.regexp, color: "var(--hljs-regexp)" },
+  { tag: t.escape, color: "var(--hljs-built_in)" },
+  { tag: [t.tagName, t.angleBracket], color: "var(--hljs-selector-tag)" },
+  { tag: [t.variableName, t.labelName, t.definition(t.variableName), t.local(t.variableName)], color: "var(--hljs-variable)" },
+  { tag: t.operator, color: "var(--hljs-meta)" },
+  { tag: [t.attributeValue, t.character], color: "var(--hljs-string)" },
+  { tag: t.invalid, color: "var(--hljs-deletion)" },
 ]);
 
 export const openslateSyntaxHighlighting: Extension = syntaxHighlighting(openslateHighlight);
