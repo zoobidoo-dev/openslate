@@ -275,7 +275,7 @@ pub async fn get_note(
 pub async fn create_note(
     State(db): State<SqlitePool>,
     Json(body): Json<CreateNote>,
-) -> Result<(StatusCode, Json<Value>), StatusCode> {
+) -> Result<(StatusCode, Json<NoteResponse>), StatusCode> {
     let id = Uuid::new_v4().to_string();
     let slug = slugify(&body.title);
     let unique_slug = ensure_unique_slug(&db, &slug, None).await;
@@ -293,7 +293,30 @@ pub async fn create_note(
     set_note_tags(&db, &id, body.tags).await;
     update_wikilinks(&db, &id, &content).await;
 
-    Ok((StatusCode::CREATED, Json(json!({ "slug": unique_slug }))))
+    let tags = get_note_tags(&db, &id).await;
+    let backlinks = get_backlinks(&db, &id).await;
+
+    let note = sqlx::query_as::<_, NoteRow>(
+        "SELECT id, title, slug, content, created_at, updated_at FROM notes WHERE id = ?",
+    )
+    .bind(&id)
+    .fetch_one(&db)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    Ok((
+        StatusCode::CREATED,
+        Json(NoteResponse {
+            id: note.id,
+            title: note.title,
+            slug: note.slug,
+            content: note.content,
+            tags,
+            backlinks,
+            created_at: note.created_at,
+            updated_at: note.updated_at,
+        }),
+    ))
 }
 
 pub async fn update_note(
