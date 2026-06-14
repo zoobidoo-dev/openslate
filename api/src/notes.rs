@@ -397,15 +397,11 @@ fn parse_frontmatter(content: &str) -> (Frontmatter, &str) {
                             }
                         }
                     }
-                    "created_at" | "date" => {
-                        if !value.is_empty() {
-                            fm.created_at = Some(value.to_string());
-                        }
+                    "created_at" | "date" if !value.is_empty() => {
+                        fm.created_at = Some(value.to_string());
                     }
-                    "updated_at" => {
-                        if !value.is_empty() {
-                            fm.updated_at = Some(value.to_string());
-                        }
+                    "updated_at" if !value.is_empty() => {
+                        fm.updated_at = Some(value.to_string());
                     }
                     _ => {}
                 }
