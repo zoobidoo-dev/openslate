@@ -55,12 +55,38 @@ pub async fn me() -> Json<serde_json::Value> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use axum::body::Body;
+    use axum::{Router, middleware, routing::get};
     use serial_test::serial;
+    use tower::ServiceExt;
 
     #[tokio::test]
     #[serial]
     async fn test_me_returns_authenticated() {
         let response = me().await;
         assert_eq!(response.0.get("authenticated"), Some(&json!(true)));
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn test_auth_middleware_invalid_token() {
+        let app = Router::new()
+            .route("/", get(|| async { "ok" }))
+            .layer(middleware::from_fn(auth_middleware));
+
+        let res = temp_env::async_with_vars([("JWT_SECRET", Some("test_secret"))], async {
+            app.oneshot(
+                axum::http::Request::builder()
+                    .uri("/")
+                    .header("Cookie", "token=invalid.jwt.here")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap()
+        })
+        .await;
+
+        assert_eq!(res.status(), StatusCode::UNAUTHORIZED);
     }
 }

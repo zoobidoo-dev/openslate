@@ -54,6 +54,7 @@ dependencies = [
  "temp-env",
  "time",
  "tokio",
+ "tower",
  "tower-http",
  "uuid",
 ]

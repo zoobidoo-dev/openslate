@@ -28,3 +28,4 @@ time = { version = "0.3", features = ["serde"] }
 [dev-dependencies]
 serial_test = "3.5.0"
 temp-env = { version = "0.3.6", features = ["async_closure"] }
+tower = { version = "0.5.3", features = ["util"] }
