@@ -388,7 +388,7 @@
         await loadNotes();
       }
     } else {
-      await api(`/api/notes/${tab.slug}`, {
+      const res = await api(`/api/notes/${tab.slug}`, {
         method: "PUT",
         body: JSON.stringify({
           title: tab.title,
@@ -396,10 +396,16 @@
           tags,
         }),
       });
-      tab.savedTitle = tab.title;
-      tab.savedContent = tab.content;
-      tab.savedTags = tab.tags;
-      tab.dirty = false;
+      if (res.ok) {
+        const note: NoteDetail = await res.json();
+        tab.slug = note.slug;
+        tab.title = note.title;
+        tab.backlinks = note.backlinks;
+        tab.savedTitle = tab.title;
+        tab.savedContent = tab.content;
+        tab.savedTags = tab.tags;
+        tab.dirty = false;
+      }
       await loadNotes();
     }
   }
