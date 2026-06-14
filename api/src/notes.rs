@@ -1,12 +1,16 @@
 use axum::{
     Json,
-    extract::{Path, State},
-    http::StatusCode,
+    extract::{Multipart, Path, State},
+    http::{StatusCode, header},
+    response::Response,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sqlx::SqlitePool;
+use std::io::Write;
 use uuid::Uuid;
+use zip::write::SimpleFileOptions;
+use zip::{CompressionMethod, ZipWriter};
 
 #[derive(Serialize, sqlx::FromRow)]
 struct NoteRow {
@@ -345,4 +349,444 @@ pub async fn delete_note(
         return Err(StatusCode::NOT_FOUND);
     }
     Ok(StatusCode::NO_CONTENT)
+}
+
+// --- Import / Export ---
+
+#[derive(Default)]
+struct Frontmatter {
+    title: Option<String>,
+    tags: Vec<String>,
+    created_at: Option<String>,
+    updated_at: Option<String>,
+}
+
+fn parse_frontmatter(content: &str) -> (Frontmatter, &str) {
+    let mut fm = Frontmatter::default();
+    let rest = if content.starts_with("---\n") || content.starts_with("---\r\n") {
+        if let Some(end_idx) = content[3..].find("\n---") {
+            let raw = &content[3..3 + end_idx];
+            let body_start = 3 + end_idx + 4;
+            let body = content[body_start..]
+                .trim_start_matches('\n')
+                .trim_start_matches("\r\n");
+
+            for line in raw.lines() {
+                let line = line.trim();
+                if line.is_empty() || line.starts_with('#') {
+                    continue;
+                }
+                let Some((key, value)) = line.split_once(':') else {
+                    continue;
+                };
+                let key = key.trim();
+                let value = value.trim();
+                match key {
+                    "title" => {
+                        let v = value.trim_matches('"').trim_matches('\'');
+                        if !v.is_empty() {
+                            fm.title = Some(v.to_string());
+                        }
+                    }
+                    "tags" => {
+                        let inner = value.trim_matches('[').trim_matches(']');
+                        for t in inner.split(',') {
+                            let t = t.trim().trim_matches('"').trim_matches('\'');
+                            if !t.is_empty() {
+                                fm.tags.push(t.to_string());
+                            }
+                        }
+                    }
+                    "created_at" | "date" => {
+                        if !value.is_empty() {
+                            fm.created_at = Some(value.to_string());
+                        }
+                    }
+                    "updated_at" => {
+                        if !value.is_empty() {
+                            fm.updated_at = Some(value.to_string());
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            return (fm, body);
+        } else {
+            content
+        }
+    } else {
+        content
+    };
+    (fm, rest)
+}
+
+fn title_from_filename(filename: &str) -> String {
+    let stem = filename
+        .rsplit_once('.')
+        .map(|(s, _)| s)
+        .unwrap_or(filename);
+    let stem = stem.replace(['_', '-'], " ");
+    let mut out = String::new();
+    for word in stem.split_whitespace() {
+        if let Some(c) = word.chars().next() {
+            out.push(c.to_uppercase().next().unwrap_or(c));
+            out.push_str(&word[c.len_utf8()..]);
+        }
+        out.push(' ');
+    }
+    let trimmed = out.trim();
+    if trimmed.is_empty() {
+        "Untitled".to_string()
+    } else {
+        trimmed.to_string()
+    }
+}
+
+fn extract_inline_tags(md: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    for cap in md.match_indices('#') {
+        let rest = &md[cap.0 + 1..];
+        let mut end = 0;
+        for (i, c) in rest.char_indices() {
+            if c.is_alphanumeric() || c == '_' || c == '-' {
+                end = i + c.len_utf8();
+            } else {
+                break;
+            }
+        }
+        if end == 0 {
+            continue;
+        }
+        let tag = &rest[..end];
+        let prev_char = md[..cap.0].chars().last();
+        let is_word_start = match prev_char {
+            None => true,
+            Some(c) => c.is_whitespace() || c == '(' || c == '[' || c == '>' || c == '\n' || c == '\r',
+        };
+        if !is_word_start {
+            continue;
+        }
+        if tag.chars().next().map(|c| c.is_ascii_digit()).unwrap_or(false) {
+            continue;
+        }
+        out.push(tag.to_lowercase());
+    }
+    out
+}
+
+#[derive(Serialize)]
+pub struct ImportResult {
+    file: String,
+    slug: String,
+    title: String,
+    status: &'static str,
+}
+
+#[derive(Serialize)]
+pub struct ImportResponse {
+    imported: usize,
+    failed: usize,
+    results: Vec<ImportResult>,
+}
+
+pub async fn import_notes(
+    State(db): State<SqlitePool>,
+    mut multipart: Multipart,
+) -> Result<Json<ImportResponse>, (StatusCode, Json<Value>)> {
+    let mut files: Vec<(String, Vec<u8>)> = Vec::new();
+
+    while let Some(field) = multipart.next_field().await.map_err(|e| {
+        (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "error": format!("Invalid multipart: {}", e) })),
+        )
+    })? {
+        let name = field.name().unwrap_or("").to_string();
+        if name != "file" && name != "files" {
+            continue;
+        }
+        let original_name = field
+            .file_name()
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| "untitled.md".to_string());
+        let bytes = field.bytes().await.map_err(|e| {
+            (
+                StatusCode::BAD_REQUEST,
+                Json(json!({ "error": format!("Failed to read file: {}", e) })),
+            )
+        })?;
+        files.push((original_name, bytes.to_vec()));
+    }
+
+    if files.is_empty() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "error": "No files provided" })),
+        ));
+    }
+
+    let mut results: Vec<ImportResult> = Vec::new();
+    let mut imported = 0usize;
+    let mut failed = 0usize;
+
+    for (original_name, bytes) in files {
+        let display_name = original_name.clone();
+        let result = import_single(&db, &original_name, &bytes).await;
+        match result {
+            Ok((slug, title)) => {
+                imported += 1;
+                results.push(ImportResult {
+                    file: display_name,
+                    slug,
+                    title,
+                    status: "ok",
+                });
+            }
+            Err(reason) => {
+                failed += 1;
+                results.push(ImportResult {
+                    file: display_name.clone(),
+                    slug: String::new(),
+                    title: String::new(),
+                    status: "error",
+                });
+                eprintln!("Import failed for {}: {}", display_name, reason);
+            }
+        }
+    }
+
+    Ok(Json(ImportResponse {
+        imported,
+        failed,
+        results,
+    }))
+}
+
+async fn import_single(
+    db: &SqlitePool,
+    original_name: &str,
+    bytes: &[u8],
+) -> Result<(String, String), String> {
+    let lower = original_name.to_lowercase();
+    if !(lower.ends_with(".md") || lower.ends_with(".markdown")) {
+        return Err("Not a markdown file".into());
+    }
+    let text = std::str::from_utf8(bytes).map_err(|_| "File is not valid UTF-8")?;
+
+    let (fm, body) = parse_frontmatter(text);
+
+    let title = fm
+        .title
+        .clone()
+        .filter(|t| !t.trim().is_empty())
+        .unwrap_or_else(|| title_from_filename(original_name));
+
+    let mut tags: Vec<String> = fm
+        .tags
+        .iter()
+        .map(|t| t.trim().to_lowercase())
+        .filter(|t| !t.is_empty())
+        .collect();
+    for t in extract_inline_tags(body) {
+        if !tags.contains(&t) {
+            tags.push(t);
+        }
+    }
+
+    let id = Uuid::new_v4().to_string();
+    let slug = ensure_unique_slug(db, &slugify(&title), None).await;
+
+    sqlx::query(
+        "INSERT INTO notes (id, title, slug, content) VALUES (?1, ?2, ?3, ?4)",
+    )
+    .bind(&id)
+    .bind(&title)
+    .bind(&slug)
+    .bind(body)
+    .execute(db)
+    .await
+    .map_err(|e| format!("DB insert: {}", e))?;
+
+    if let Some(ref created) = fm.created_at {
+        sqlx::query("UPDATE notes SET created_at = ?1 WHERE id = ?2")
+            .bind(created)
+            .bind(&id)
+            .execute(db)
+            .await
+            .ok();
+    }
+    if let Some(ref updated) = fm.updated_at {
+        sqlx::query("UPDATE notes SET updated_at = ?1 WHERE id = ?2")
+            .bind(updated)
+            .bind(&id)
+            .execute(db)
+            .await
+            .ok();
+    }
+
+    let tags_opt = if tags.is_empty() { None } else { Some(tags) };
+    set_note_tags(db, &id, tags_opt).await;
+    update_wikilinks(db, &id, body).await;
+
+    Ok((slug, title))
+}
+
+fn sanitize_filename(s: &str) -> String {
+    s.chars()
+        .map(|c| {
+            if c.is_alphanumeric() || c == '-' || c == '_' || c == '.' {
+                c
+            } else {
+                '-'
+            }
+        })
+        .collect::<String>()
+        .trim_matches('-')
+        .to_string()
+}
+
+pub async fn export_notes(
+    State(db): State<SqlitePool>,
+) -> Result<Response, StatusCode> {
+    let entries = load_export_entries(&db).await?;
+    let readme = "# openslate export (flat)\n\n\
+Exported notes from openslate. Each note is a Markdown file with YAML frontmatter,\n\
+placed at the root of this zip (no subfolders).\n\n\
+Re-import any of these `.md` files via Settings → Data → Import (or the sidebar\n\
+import button) to restore them. The frontmatter preserves title, tags, slug,\n\
+and timestamps.\n";
+    let mut zip = ZipWriter::new(std::io::Cursor::new(Vec::<u8>::new()));
+    let options =
+        SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
+
+    zip.start_file("README.md", options)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    zip.write_all(readme.as_bytes())
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    for (title, slug, content, tags, created_at, updated_at) in &entries {
+        let body = render_note_md(title, slug, content, tags, created_at, updated_at);
+        let filename = format!("{}.md", sanitize_filename(slug));
+        zip.start_file(&filename, options)
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        zip.write_all(body.as_bytes())
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    }
+
+    build_zip_response(zip, "openslate-export.zip")
+}
+
+pub async fn export_notes_by_tag(
+    State(db): State<SqlitePool>,
+) -> Result<Response, StatusCode> {
+    let entries = load_export_entries(&db).await?;
+    let readme = "# openslate export (by tag)\n\n\
+Exported notes from openslate. Each note is a Markdown file with YAML frontmatter.\n\n\
+- Tagged notes are placed under `tags/<tag>/` (using the note's first tag).\n\
+- Untagged notes are placed under `untagged/`.\n\n\
+Re-import any of these `.md` files via Settings → Data → Import (or the sidebar\n\
+import button) to restore them. The frontmatter preserves title, tags, slug,\n\
+and timestamps.\n";
+    let mut zip = ZipWriter::new(std::io::Cursor::new(Vec::<u8>::new()));
+    let options =
+        SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
+
+    zip.start_file("README.md", options)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    zip.write_all(readme.as_bytes())
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    for (title, slug, content, tags, created_at, updated_at) in &entries {
+        let body = render_note_md(title, slug, content, tags, created_at, updated_at);
+        let filename = format!("{}.md", sanitize_filename(slug));
+        let path = if let Some(first) = tags.first() {
+            format!("tags/{}/{}", sanitize_filename(first), filename)
+        } else {
+            format!("untagged/{}", filename)
+        };
+        zip.start_file(&path, options)
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        zip.write_all(body.as_bytes())
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    }
+
+    build_zip_response(zip, "openslate-export-by-tag.zip")
+}
+
+type ExportEntry = (String, String, String, Vec<String>, String, String);
+
+async fn load_export_entries(db: &SqlitePool) -> Result<Vec<ExportEntry>, StatusCode> {
+    let rows = sqlx::query_as::<_, NoteRow>(
+        "SELECT id, title, slug, content, created_at, updated_at FROM notes ORDER BY title COLLATE NOCASE",
+    )
+    .fetch_all(db)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let mut entries: Vec<ExportEntry> = Vec::new();
+    for row in rows {
+        let tags = get_note_tags(db, &row.id).await;
+        entries.push((
+            row.title,
+            row.slug,
+            row.content,
+            tags,
+            row.created_at,
+            row.updated_at,
+        ));
+    }
+    Ok(entries)
+}
+
+fn render_note_md(
+    title: &str,
+    slug: &str,
+    content: &str,
+    tags: &[String],
+    created_at: &str,
+    updated_at: &str,
+) -> String {
+    let mut fm = String::from("---\n");
+    fm.push_str(&format!(
+        "title: \"{}\"\n",
+        title.replace('"', "\\\"")
+    ));
+    fm.push_str(&format!("slug: \"{}\"\n", slug));
+    if !tags.is_empty() {
+        fm.push_str("tags: [");
+        fm.push_str(
+            &tags
+                .iter()
+                .map(|t| format!("\"{}\"", t.replace('"', "\\\"")))
+                .collect::<Vec<_>>()
+                .join(", "),
+        );
+        fm.push_str("]\n");
+    }
+    fm.push_str(&format!("created_at: \"{}\"\n", created_at));
+    fm.push_str(&format!("updated_at: \"{}\"\n", updated_at));
+    fm.push_str("---\n\n");
+    format!("{}{}", fm, content)
+}
+
+fn build_zip_response(
+    zip: ZipWriter<std::io::Cursor<Vec<u8>>>,
+    filename: &str,
+) -> Result<Response, StatusCode> {
+    let cursor = zip
+        .finish()
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let bytes = cursor.into_inner();
+
+    let response = Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, "application/zip")
+        .header(
+            header::CONTENT_DISPOSITION,
+            format!("attachment; filename=\"{}\"", filename),
+        )
+        .body(axum::body::Body::from(bytes))
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    Ok(response)
 }

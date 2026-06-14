@@ -1010,6 +1010,7 @@
 <SettingsModal
   open={settingsOpen}
   onClose={() => settingsOpen = false}
+  onImported={async () => { await loadNotes(); }}
 />
 
 <style>

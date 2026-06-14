@@ -162,6 +162,54 @@ Delete a note.
 
 **Errors:** 404 (note not found)
 
+### `POST /api/notes/import`
+
+Import one or many Markdown files (single or multi-file upload).
+
+**Request:** `multipart/form-data`
+| Field | Description |
+|-------|------------|
+| `file` | A `.md` or `.markdown` file (repeatable; one field per file) |
+
+**Response** (200):
+```json
+{
+  "imported": 3,
+  "failed": 1,
+  "results": [
+    { "file": "note-a.md", "slug": "note-a", "title": "Note A", "status": "ok" },
+    { "file": "bad.md", "slug": "", "title": "", "status": "error" }
+  ]
+}
+```
+
+- Title is taken from frontmatter `title`, else from the first `# H1`, else from the filename
+- Slug is auto-generated from the title and made unique
+- Frontmatter `tags` and inline `#hashtags` in the body are merged into the note's tags
+- `created_at` / `updated_at` from frontmatter are preserved if present
+- Filenames with non-`.md` extensions are rejected (per file, not the whole request)
+
+### `GET /api/notes/export`
+
+Download all notes as a single flat zip file (`openslate-export.zip`).
+
+**Response** (200): `application/zip` containing:
+- `README.md` with re-import instructions
+- `{slug}.md` for every note (all flat at the zip root, no subfolders)
+
+Each Markdown file has YAML frontmatter with `title`, `slug`, `tags`, `created_at`, `updated_at`, so the export can be re-imported to recreate the full note state.
+
+### `GET /api/notes/export-by-tag`
+
+Download all notes as a single zip file (`openslate-export-by-tag.zip`), organized by tag.
+
+**Response** (200): `application/zip` containing:
+- `README.md` with re-import instructions
+- `tags/{tag}/{slug}.md` for tagged notes (using the first tag)
+- `untagged/{slug}.md` for notes with no tags
+
+Each Markdown file has the same frontmatter shape as the flat export.
+
 ---
 
 ## Search

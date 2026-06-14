@@ -29,3 +29,34 @@ export async function uploadFile(
   }
   return api(path, { method: "POST", body: form });
 }
+
+export async function uploadFiles(
+  path: string,
+  files: File[],
+  extraFields?: Record<string, string>,
+): Promise<Response> {
+  const form = new FormData();
+  for (const file of files) {
+    form.append("file", file);
+  }
+  if (extraFields) {
+    for (const [key, val] of Object.entries(extraFields)) {
+      form.append(key, val);
+    }
+  }
+  return api(path, { method: "POST", body: form });
+}
+
+export async function downloadFile(path: string, filename: string): Promise<void> {
+  const res = await api(path);
+  if (!res.ok) throw new Error(`Download failed: ${res.status}`);
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
