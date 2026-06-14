@@ -1,3 +1,8 @@
+<script module lang="ts">
+  type DragSource = { paneId: string; tabId: string } | null;
+  let _dragSource: DragSource = null;
+</script>
+
 <script lang="ts">
   import { X } from "@lucide/svelte";
   import MarkdownEditor from "./MarkdownEditor.svelte";
@@ -28,6 +33,7 @@
   let {
     tabs = [] as TabSession[],
     activeTabId = null as string | null,
+    paneId = "",
     noteMedia = [] as MediaItem[],
     insertMediaMd = "",
     insertMediaKey = 0,
@@ -36,6 +42,7 @@
     onCloseTab,
     onTabContextMenu,
     onReorderTabs,
+    onMoveTab,
     onTabTitleChange,
     onTabTagsChange,
     onTabContentChange,
@@ -46,6 +53,7 @@
   }: {
     tabs?: TabSession[];
     activeTabId?: string | null;
+    paneId?: string;
     noteMedia?: MediaItem[];
     insertMediaMd?: string;
     insertMediaKey?: number;
@@ -54,6 +62,7 @@
     onCloseTab?: (tabId: string) => void;
     onTabContextMenu?: (tabId: string, e: MouseEvent) => void;
     onReorderTabs?: (newTabs: TabSession[]) => void;
+    onMoveTab?: (tabId: string, fromPaneId: string, toPaneId: string, insertIdx: number) => void;
     onTabTitleChange?: (title: string) => void;
     onTabTagsChange?: (tags: string) => void;
     onTabContentChange?: (md: string) => void;
@@ -69,61 +78,98 @@
   let overIdx = $state<number | null>(null);
   let overSide = $state<"left" | "right" | null>(null);
 
-  function onDragStart(e: DragEvent, idx: number) {
-    dragIdx = idx;
-    if (e.dataTransfer) {
-      e.dataTransfer.effectAllowed = "move";
-    }
+  function resetDrag() {
+    dragIdx = null;
+    overIdx = null;
+    overSide = null;
+    _dragSource = null;
   }
 
-  function onDragOver(e: DragEvent, idx: number) {
-    e.preventDefault();
-    if (dragIdx === null) return;
-    if (dragIdx === idx) {
+  function draggableTab(node: HTMLElement, initialIdx: number) {
+    let idx = initialIdx;
+    node.draggable = true;
+
+    function onDragStart(e: DragEvent) {
+      dragIdx = idx;
+      _dragSource = { paneId, tabId: tabs[idx].id };
+      if (e.dataTransfer) {
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("text/plain", tabs[idx].id);
+      }
+    }
+
+    function onDragOver(e: DragEvent) {
+      if (!_dragSource) return;
+      e.preventDefault();
+      if (_dragSource.paneId === paneId && dragIdx === idx) {
+        overIdx = null;
+        overSide = null;
+        return;
+      }
+      const rect = node.getBoundingClientRect();
+      overIdx = idx;
+      overSide = e.clientX < rect.left + rect.width / 2 ? "left" : "right";
+    }
+
+    function onDragLeave(e: DragEvent) {
+      if (node.contains(e.relatedTarget as Node)) return;
       overIdx = null;
       overSide = null;
-      return;
     }
-    const el = e.currentTarget as HTMLElement;
-    const rect = el.getBoundingClientRect();
-    overIdx = idx;
-    overSide = e.clientX < rect.left + rect.width / 2 ? "left" : "right";
-  }
 
-  function onDragLeave(e: DragEvent) {
-    const el = e.currentTarget as HTMLElement;
-    if (el.contains(e.relatedTarget as Node)) return;
-    overIdx = null;
-    overSide = null;
-  }
+    function onDrop(e: DragEvent) {
+      e.preventDefault();
+      if (!_dragSource || overIdx === null || overSide === null) return;
 
-  function onDrop(e: DragEvent) {
-    e.preventDefault();
-    if (dragIdx === null || overIdx === null || overSide === null) return;
-    if (dragIdx === overIdx) return;
+      const { paneId: fromPaneId, tabId } = _dragSource;
+      let insertAt = overSide === "right" ? overIdx + 1 : overIdx;
 
-    const newTabs = [...tabs];
-    const [dragged] = newTabs.splice(dragIdx, 1);
-    let insertAt = overSide === "right" ? overIdx + 1 : overIdx;
-    if (dragIdx < insertAt) insertAt--;
-    newTabs.splice(insertAt, 0, dragged);
+      if (fromPaneId === paneId && dragIdx !== null) {
+        if (dragIdx === overIdx) {
+          resetDrag();
+          return;
+        }
+        const newTabs = [...tabs];
+        const [dragged] = newTabs.splice(dragIdx, 1);
+        if (dragIdx < insertAt) insertAt--;
+        newTabs.splice(insertAt, 0, dragged);
+        onReorderTabs?.(newTabs);
+      } else {
+        onMoveTab?.(tabId, fromPaneId, paneId, insertAt);
+      }
 
-    onReorderTabs?.(newTabs);
-    dragIdx = null;
-    overIdx = null;
-    overSide = null;
-  }
+      resetDrag();
+    }
 
-  function onDragEnd() {
-    dragIdx = null;
-    overIdx = null;
-    overSide = null;
+    function onDragEnd() {
+      resetDrag();
+    }
+
+    node.addEventListener("dragstart", onDragStart);
+    node.addEventListener("dragover", onDragOver);
+    node.addEventListener("dragleave", onDragLeave);
+    node.addEventListener("drop", onDrop);
+    node.addEventListener("dragend", onDragEnd);
+
+    return {
+      update(newIdx: number) {
+        idx = newIdx;
+      },
+      destroy() {
+        node.removeEventListener("dragstart", onDragStart);
+        node.removeEventListener("dragover", onDragOver);
+        node.removeEventListener("dragleave", onDragLeave);
+        node.removeEventListener("drop", onDrop);
+        node.removeEventListener("dragend", onDragEnd);
+        node.draggable = false;
+      },
+    };
   }
 </script>
 
 <div class="pane flex flex-col min-h-0 flex-1">
   {#if tabs.length > 0}
-    <div class="tab-bar">
+    <div class="tab-bar" ondragover={(e) => { if (_dragSource) e.preventDefault(); }} ondrop={(e) => { e.preventDefault(); resetDrag(); }}>
       {#each tabs as tab, idx}
         <!-- svelte-ignore a11y_no_static_element_interactions -->
         <div
@@ -133,15 +179,10 @@
           class:dragging={dragIdx === idx}
           class:drop-left={overIdx === idx && overSide === "left"}
           class:drop-right={overIdx === idx && overSide === "right"}
-          draggable="true"
+          use:draggableTab={idx}
           onclick={() => onSwitchTab?.(tab.id)}
           onmousedown={(e) => { if (e.button === 1) { e.preventDefault(); onCloseTab?.(tab.id); } }}
           oncontextmenu={(e) => { e.preventDefault(); e.stopPropagation(); onTabContextMenu?.(tab.id, e); }}
-          ondragstart={(e) => onDragStart(e, idx)}
-          ondragover={(e) => onDragOver(e, idx)}
-          ondragleave={(e) => onDragLeave(e)}
-          ondrop={(e) => onDrop(e)}
-          ondragend={onDragEnd}
           title={tab.title || "Untitled"}
         >
           {#if tab.dirty}

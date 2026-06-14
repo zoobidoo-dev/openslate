@@ -20,6 +20,7 @@
     onCloseTab,
     onTabContextMenu,
     onReorderTabs,
+    onMoveTab,
     onTabTitleChange,
     onTabTagsChange,
     onTabContentChange,
@@ -38,6 +39,7 @@
     onCloseTab?: (paneId: string, tabId: string) => void;
     onTabContextMenu?: (paneId: string, tabId: string, e: MouseEvent) => void;
     onReorderTabs?: (paneId: string, newTabs: TabSession[]) => void;
+    onMoveTab?: (tabId: string, fromPaneId: string, toPaneId: string, insertIdx: number) => void;
     onTabTitleChange?: (paneId: string, title: string) => void;
     onTabTagsChange?: (paneId: string, tags: string) => void;
     onTabContentChange?: (paneId: string, md: string) => void;
@@ -90,6 +92,7 @@
     <PaneView
       tabs={data.tabs}
       activeTabId={data.activeTabId}
+      paneId={node.id}
       noteMedia={data.noteMedia}
       {insertMediaMd}
       {insertMediaKey}
@@ -98,6 +101,7 @@
       onCloseTab={(tabId) => onCloseTab?.(node.id, tabId)}
       onTabContextMenu={(tabId, e) => onTabContextMenu?.(node.id, tabId, e)}
       onReorderTabs={(newTabs) => onReorderTabs?.(node.id, newTabs)}
+      onMoveTab={(tabId, fromPaneId, toPaneId, insertIdx) => onMoveTab?.(tabId, fromPaneId, toPaneId, insertIdx)}
       onTabTitleChange={(t) => onTabTitleChange?.(node.id, t)}
       onTabTagsChange={(t) => onTabTagsChange?.(node.id, t)}
       onTabContentChange={(md) => onTabContentChange?.(node.id, md)}
@@ -126,6 +130,7 @@
         {onCloseTab}
         {onTabContextMenu}
         {onReorderTabs}
+        {onMoveTab}
         {onTabTitleChange}
         {onTabTagsChange}
         {onTabContentChange}
@@ -155,6 +160,7 @@
         {onCloseTab}
         {onTabContextMenu}
         {onReorderTabs}
+        {onMoveTab}
         {onTabTitleChange}
         {onTabTagsChange}
         {onTabContentChange}

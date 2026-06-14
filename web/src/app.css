@@ -1726,17 +1726,12 @@ body {
   overflow-x: auto;
   overflow-y: hidden;
   flex-shrink: 0;
-  scrollbar-width: thin;
+  scrollbar-width: none;
   border-bottom: 1px solid var(--border-color);
 }
 
 .tab-bar::-webkit-scrollbar {
-  height: 3px;
-}
-
-.tab-bar::-webkit-scrollbar-thumb {
-  background: var(--border-color);
-  border-radius: 2px;
+  display: none;
 }
 
 .tab-item {
@@ -1750,9 +1745,8 @@ body {
   background: transparent;
   white-space: nowrap;
   user-select: none;
-  min-width: 0;
-  max-width: 200px;
-  flex-shrink: 0;
+  min-width: 48px;
+  flex: 0 1 200px;
   position: relative;
   border-radius: 7px 7px 0 0;
   margin-right: 1px;
@@ -1779,7 +1773,7 @@ body {
 .tab-title {
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 160px;
+  min-width: 0;
 }
 
 .tab-dirty {

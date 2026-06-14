@@ -262,6 +262,41 @@
     pane.tabs = newTabs;
   }
 
+  function handleMoveTab(tabId: string, fromPaneId: string, toPaneId: string, insertIdx: number) {
+    const fromPane = panes[fromPaneId];
+    const toPane = panes[toPaneId];
+    if (!fromPane || !toPane) return;
+
+    const tab = fromPane.tabs.find(t => t.id === tabId);
+    if (!tab) return;
+
+    const wasActive = fromPane.activeTabId === tabId;
+    fromPane.tabs = fromPane.tabs.filter(t => t.id !== tabId);
+
+    if (wasActive) {
+      if (fromPane.tabs.length > 0) {
+        fromPane.activeTabId = fromPane.tabs[0].id;
+        const nextTab = fromPane.tabs[0];
+        if (nextTab?.noteId) loadPaneNoteMedia(fromPaneId, nextTab.noteId);
+        else fromPane.noteMedia = [];
+      } else {
+        fromPane.activeTabId = null;
+        fromPane.noteMedia = [];
+      }
+    }
+
+    toPane.tabs = [
+      ...toPane.tabs.slice(0, insertIdx),
+      tab,
+      ...toPane.tabs.slice(insertIdx),
+    ];
+    toPane.activeTabId = tabId;
+    if (tab.noteId) loadPaneNoteMedia(toPaneId, tab.noteId);
+    else toPane.noteMedia = [];
+
+    focusedPaneId = toPaneId;
+  }
+
   function handlePaneTitleChange(paneId: string, title: string) {
     const pane = panes[paneId];
     if (!pane) return;
@@ -853,6 +888,7 @@
         onCloseTab={handlePaneCloseTab}
         onTabContextMenu={handleTabContextMenu}
         onReorderTabs={handlePaneReorderTabs}
+        onMoveTab={handleMoveTab}
         onTabTitleChange={handlePaneTitleChange}
         onTabTagsChange={handlePaneTagsChange}
         onTabContentChange={handlePaneContentChange}
