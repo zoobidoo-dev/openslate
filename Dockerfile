@@ -22,6 +22,9 @@ RUN apt-get update && apt-get install -y ca-certificates curl && rm -rf /var/lib
 COPY --from=caddy:2-alpine /usr/bin/caddy /usr/local/bin/caddy
 COPY --from=backend /app/target/release/api /usr/local/bin/api
 COPY --from=frontend /app/build /srv/frontend
+# zoobidoo:start — fork-only static landing page for the apex domain (kept out of upstream)
+COPY custom/landing /srv/landing
+# zoobidoo:end
 COPY Caddyfile /etc/caddy/Caddyfile
 COPY docker-entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh

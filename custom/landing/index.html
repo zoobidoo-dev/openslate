@@ -1,0 +1,88 @@
+<!doctype html>
+<!--
+  zoobidoo: fork-only static landing page served on the apex domain (alphacentury.dev).
+  Not part of upstream OpenSlate. Served by Caddy via the LANDING_DOMAIN block added in
+  docker-entrypoint.sh. Edit the copy/links below freely — it's purely cosmetic.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AlphaCentury — Personal Notes &amp; Writing</title>
+  <meta name="description" content="AlphaCentury is a small personal productivity site: a private, self-hosted notebook for writing, organizing ideas, and keeping notes searchable in one place.">
+  <meta name="robots" content="index, follow">
+  <style>
+    :root { color-scheme: light dark; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      line-height: 1.65;
+      color: #1f2328;
+      background: #fafafa;
+      display: flex;
+      min-height: 100vh;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+    main {
+      max-width: 40rem;
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 14px;
+      padding: 2.75rem;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, .06);
+    }
+    h1 { margin: 0 0 .35rem; font-size: 2rem; letter-spacing: -.02em; }
+    .tagline { margin: 0 0 1.6rem; color: #6b7280; font-size: 1.05rem; }
+    p { margin: 0 0 1rem; }
+    ul { margin: 0 0 1.6rem; padding-left: 1.2rem; }
+    li { margin: .3rem 0; }
+    a.cta {
+      display: inline-block;
+      background: #2563eb;
+      color: #fff;
+      text-decoration: none;
+      padding: .75rem 1.35rem;
+      border-radius: 9px;
+      font-weight: 600;
+    }
+    a.cta:hover { background: #1d4ed8; }
+    footer { margin-top: 2.25rem; color: #9ca3af; font-size: .85rem; }
+    @media (prefers-color-scheme: dark) {
+      body { color: #e6edf3; background: #0d1117; }
+      main { background: #161b22; border-color: #30363d; box-shadow: none; }
+      .tagline { color: #8b949e; }
+      footer { color: #6e7681; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>AlphaCentury</h1>
+    <p class="tagline">A small, private space for writing and notes.</p>
+
+    <p>
+      AlphaCentury is a personal productivity site. It hosts a self-hosted
+      notebook for writing things down, organizing ideas, drafting documents,
+      and keeping personal notes searchable in one private place.
+    </p>
+
+    <p>What lives here:</p>
+    <ul>
+      <li>A private notes and writing app</li>
+      <li>Markdown documents and quick drafts</li>
+      <li>Personal reference material, checklists, and reading notes</li>
+    </ul>
+
+    <p>
+      <a class="cta" href="https://notes.alphacentury.dev">Open the notes app &rarr;</a>
+    </p>
+
+    <footer>
+      AlphaCentury &middot; a personal productivity and notes site.
+    </footer>
+  </main>
+</body>
+</html>

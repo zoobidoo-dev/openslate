@@ -10,6 +10,21 @@ else
   export FRONTEND_URL="http://localhost:8080"
 fi
 
+# zoobidoo:start — fork-only: serve a static landing page on a separate apex domain
+# (improves URL/Zscaler categorization). No-op upstream: skipped when LANDING_DOMAIN is unset.
+if [ -n "$LANDING_DOMAIN" ]; then
+  cat >> /etc/caddy/Caddyfile <<CADDY
+
+${LANDING_DOMAIN} {
+	encode gzip
+	root * /srv/landing
+	file_server
+}
+CADDY
+  echo "LANDING_DOMAIN=${LANDING_DOMAIN}"
+fi
+# zoobidoo:end
+
 echo "FRONTEND_URL=${FRONTEND_URL}"
 echo "Starting API server..."
 
