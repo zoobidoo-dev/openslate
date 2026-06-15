@@ -1,6 +1,7 @@
 #cloud-config
 # Paste this into DigitalOcean's User Data field (or any Ubuntu VPS startup script field).
-# Single click: it installs Docker, clones openslate, and starts the app on port 8080.
+# Single click: it installs Docker, adds swap (so the build won't OOM on <=1GB droplets),
+# clones openslate, and starts the app on port 8080.
 #
 # After deploy, SSH into the server and edit /opt/openslate/.env to set:
 #   DOMAIN=your-domain.com       # enables HTTPS via Caddy
@@ -21,6 +22,13 @@ write_files:
 
 runcmd:
   - systemctl enable --now docker
+  # --- add swap so the build doesn't run out of memory on small (<=1GB) droplets ---
+  - fallocate -l 3G /swapfile || dd if=/dev/zero of=/swapfile bs=1M count=3072
+  - chmod 600 /swapfile
+  - mkswap /swapfile
+  - swapon /swapfile
+  - echo '/swapfile none swap sw 0 0' >> /etc/fstab
+  # ---------------------------------------------------------------------------------
   - git clone https://github.com/MrSheerluck/openslate /opt/openslate
   - |
     sed "s/JWT_SECRET=.*/JWT_SECRET=$(openssl rand -hex 32)/" \
