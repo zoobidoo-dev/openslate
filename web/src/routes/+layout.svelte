@@ -5,9 +5,18 @@
   import * as prefs from "$lib/preferences.svelte";
   import { goto } from "$app/navigation";
   import { page } from "$app/state";
+  // zoobidoo:start — fork-only PWA registration (no UI impact); see $lib/custom/pwa.ts
+  import { registerPwa } from "$lib/custom/pwa";
+  // zoobidoo:end
 
   let { children } = $props();
   let currentPath = $derived(String(page.url.pathname));
+
+  // zoobidoo:start — register the PWA service worker once on mount
+  $effect(() => {
+    registerPwa();
+  });
+  // zoobidoo:end
 
   $effect(() => {
     auth.checkAuth();
