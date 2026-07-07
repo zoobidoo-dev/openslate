@@ -11,6 +11,9 @@
   import SplitLayout from "$lib/components/SplitLayout.svelte";
   import { PanelLeftOpen, PanelLeftClose, Settings, LogOut } from "@lucide/svelte";
   import * as prefs from "$lib/preferences.svelte";
+  // zoobidoo:start — live sync
+  import * as sync from "$lib/custom/sync";
+  // zoobidoo:end
   import type { NoteSummary, NoteDetail, SearchResult, TabSession, MediaItem, PaneData, LayoutNode } from "$lib/types";
 
   let notes = $state<NoteSummary[]>([]);
@@ -57,6 +60,9 @@
   let settingsOpen = $state(false);
 
   let saveDebounce: ReturnType<typeof setTimeout> | null = null;
+  // zoobidoo:start — live sync
+  let syncConnected = $state(false);
+  // zoobidoo:end
 
   let sortedNotes = $derived(
     [...notes].sort((a, b) => {
@@ -385,6 +391,9 @@
         tab.savedContent = tab.content;
         tab.savedTags = tab.tags;
         tab.dirty = false;
+        // zoobidoo:start — live sync
+        sync.markSaved(note.slug);
+        // zoobidoo:end
         await loadNotes();
       }
     } else {
@@ -405,6 +414,9 @@
         tab.savedContent = tab.content;
         tab.savedTags = tab.tags;
         tab.dirty = false;
+        // zoobidoo:start — live sync
+        sync.markSaved(note.slug);
+        // zoobidoo:end
       }
       await loadNotes();
     }
@@ -466,6 +478,67 @@
 
   onMount(() => {
     loadNotes();
+
+    // zoobidoo:start — live sync
+    async function handleReconnect() {
+      // Catch up on anything missed while the connection was down.
+      await loadNotes();
+      for (const pid of Object.keys(panes)) {
+        const p = panes[pid];
+        for (const tab of p.tabs) {
+          if (!tab.dirty && tab.slug) {
+            const res = await api(`/api/notes/${tab.slug}`);
+            if (res.ok) {
+              const note: NoteDetail = await res.json();
+              tab.content = note.content;
+              tab.title = note.title;
+              tab.tags = note.tags.join(", ");
+              tab.savedTitle = note.title;
+              tab.savedContent = note.content;
+              tab.savedTags = tab.tags;
+              tab.slug = note.slug;
+              tab.backlinks = note.backlinks;
+            }
+          }
+        }
+      }
+    }
+
+    sync.startSync(handleReconnect);
+
+    const unsubStatus = sync.onStatus((connected) => { syncConnected = connected; });
+
+    const unsubSync = sync.onSync(async (event) => {
+      if (event.type === "note_deleted") {
+        for (const pid of Object.keys(panes)) {
+          const p = panes[pid];
+          const tab = p.tabs.find((t) => t.slug === event.slug);
+          if (tab) handlePaneCloseTab(pid, tab.id);
+        }
+        await loadNotes();
+        return;
+      }
+      await loadNotes();
+      for (const pid of Object.keys(panes)) {
+        const p = panes[pid];
+        const tab = p.tabs.find((t) => t.slug === event.slug);
+        if (tab && !tab.dirty) {
+          const res = await api(`/api/notes/${event.slug}`);
+          if (res.ok) {
+            const note: NoteDetail = await res.json();
+            tab.content = note.content;
+            tab.title = note.title;
+            tab.tags = note.tags.join(", ");
+            tab.savedTitle = note.title;
+            tab.savedContent = note.content;
+            tab.savedTags = tab.tags;
+            tab.slug = note.slug;
+            tab.backlinks = note.backlinks;
+          }
+        }
+      }
+    });
+    // zoobidoo:end
 
     function onKeydown(e: KeyboardEvent) {
       const mod = e.metaKey || e.ctrlKey;
@@ -566,6 +639,11 @@
     return () => {
       if (saveDebounce) clearTimeout(saveDebounce);
       document.removeEventListener("keydown", onKeydown, { capture: true });
+      // zoobidoo:start — live sync
+      unsubSync();
+      unsubStatus();
+      sync.stopSync();
+      // zoobidoo:end
     };
   });
 
@@ -775,7 +853,16 @@
             <PanelLeftOpen size={18} />
           </button>
         {:else}
-          <h1 class="font-bold text-lg" style="color: var(--text-primary);">openslate</h1>
+          <div class="flex items-center gap-2">
+            <h1 class="font-bold text-lg" style="color: var(--text-primary);">openslate</h1>
+            <!-- zoobidoo:start — live sync indicator -->
+            <span
+              title={syncConnected ? "Live sync active" : "Reconnecting…"}
+              class="sync-dot"
+              class:sync-dot--on={syncConnected}
+            ></span>
+            <!-- zoobidoo:end -->
+          </div>
           <div class="flex items-center gap-2">
             <button onclick={() => cmdPaletteOpen = true} class="text-xs px-1.5 py-0.5 rounded border cursor-pointer hover:opacity-80" style="color: var(--text-tertiary); border-color: var(--border-color);" title="Command palette (⌘⇧P / Ctrl+Shift+P)">
               ⌘⇧P
@@ -1059,4 +1146,19 @@
   .tab-btn:hover:not(.active) {
     background: var(--bg-note-hover);
   }
+  /* zoobidoo:start — live sync indicator */
+  .sync-dot {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--text-tertiary);
+    opacity: 0.4;
+    flex-shrink: 0;
+  }
+  .sync-dot--on {
+    background: #22c55e;
+    opacity: 1;
+  }
+  /* zoobidoo:end */
 </style>

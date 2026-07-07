@@ -1,5 +1,6 @@
 mod auth;
 mod config;
+mod custom;
 mod db;
 mod media;
 mod notes;
@@ -11,6 +12,7 @@ use axum::extract::FromRef;
 use axum::http::Method;
 use axum::{Router, middleware, routing::get};
 use s3::{Auth, Client, Credentials, providers};
+use tokio::sync::broadcast;
 use tower_http::cors::AllowOrigin;
 
 #[derive(Clone)]
@@ -18,6 +20,9 @@ struct AppState {
     db: sqlx::SqlitePool,
     client: Option<Client>,
     bucket: Option<String>,
+    // zoobidoo:start — live sync
+    sync_tx: broadcast::Sender<String>,
+    // zoobidoo:end
 }
 
 impl FromRef<AppState> for sqlx::SqlitePool {
@@ -25,6 +30,14 @@ impl FromRef<AppState> for sqlx::SqlitePool {
         state.db.clone()
     }
 }
+
+// zoobidoo:start — live sync
+impl FromRef<AppState> for broadcast::Sender<String> {
+    fn from_ref(state: &AppState) -> Self {
+        state.sync_tx.clone()
+    }
+}
+// zoobidoo:end
 
 #[tokio::main]
 async fn main() {
@@ -61,10 +74,17 @@ async fn main() {
             (None, None)
         };
 
+    // zoobidoo:start — live sync
+    let (sync_tx, _) = broadcast::channel::<String>(64);
+    // zoobidoo:end
+
     let state = AppState {
         db: pool,
         client,
         bucket: bucket.cloned(),
+        // zoobidoo:start — live sync
+        sync_tx,
+        // zoobidoo:end
     };
 
     let cors = tower_http::cors::CorsLayer::new()
@@ -122,6 +142,9 @@ async fn main() {
             "/api/preferences",
             get(preferences::get_preferences).put(preferences::update_preferences),
         )
+        // zoobidoo:start — live sync
+        .route("/api/events", get(custom::sync::sse_handler))
+        // zoobidoo:end
         .route_layer(middleware::from_fn(auth::auth_middleware));
 
     let app = Router::new()

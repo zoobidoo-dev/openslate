@@ -6,6 +6,12 @@ on:
       - "api/**"
       - "web/**"
       - ".github/workflows/**"
+      # zoobidoo:start — also run on container/landing changes (fork)
+      - "Dockerfile"
+      - "docker-entrypoint.sh"
+      - "Caddyfile"
+      - "custom/**"
+      # zoobidoo:end
   push:
     branches:
       - main
@@ -13,6 +19,12 @@ on:
       - "api/**"
       - "web/**"
       - ".github/workflows/**"
+      # zoobidoo:start — also rebuild + push image on container/landing changes (fork)
+      - "Dockerfile"
+      - "docker-entrypoint.sh"
+      - "Caddyfile"
+      - "custom/**"
+      # zoobidoo:end
   workflow_dispatch:
 
 concurrency:

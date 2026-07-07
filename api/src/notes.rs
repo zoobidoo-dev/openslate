@@ -4,6 +4,9 @@ use axum::{
     http::{StatusCode, header},
     response::Response,
 };
+// zoobidoo:start — live sync
+use tokio::sync::broadcast;
+// zoobidoo:end
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sqlx::SqlitePool;
@@ -274,6 +277,9 @@ pub async fn get_note(
 
 pub async fn create_note(
     State(db): State<SqlitePool>,
+    // zoobidoo:start — live sync
+    State(sync_tx): State<broadcast::Sender<String>>,
+    // zoobidoo:end
     Json(body): Json<CreateNote>,
 ) -> Result<(StatusCode, Json<NoteResponse>), StatusCode> {
     let id = Uuid::new_v4().to_string();
@@ -304,6 +310,12 @@ pub async fn create_note(
     .await
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
+    // zoobidoo:start — live sync
+    let _ = sync_tx.send(format!(
+        r#"{{"type":"note_created","slug":"{}","updated_at":"{}"}}"#,
+        note.slug, note.updated_at
+    ));
+    // zoobidoo:end
     Ok((
         StatusCode::CREATED,
         Json(NoteResponse {
@@ -321,6 +333,9 @@ pub async fn create_note(
 
 pub async fn update_note(
     State(db): State<SqlitePool>,
+    // zoobidoo:start — live sync
+    State(sync_tx): State<broadcast::Sender<String>>,
+    // zoobidoo:end
     Path(slug): Path<String>,
     Json(body): Json<UpdateNote>,
 ) -> Result<Json<NoteResponse>, StatusCode> {
@@ -366,6 +381,12 @@ pub async fn update_note(
     let tags = get_note_tags(&db, &existing.id).await;
     let backlinks = get_backlinks(&db, &existing.id).await;
 
+    // zoobidoo:start — live sync
+    let _ = sync_tx.send(format!(
+        r#"{{"type":"note_updated","slug":"{}","updated_at":"{}"}}"#,
+        note.slug, note.updated_at
+    ));
+    // zoobidoo:end
     Ok(Json(NoteResponse {
         id: note.id,
         title: note.title,
@@ -380,6 +401,9 @@ pub async fn update_note(
 
 pub async fn delete_note(
     State(db): State<SqlitePool>,
+    // zoobidoo:start — live sync
+    State(sync_tx): State<broadcast::Sender<String>>,
+    // zoobidoo:end
     Path(slug): Path<String>,
 ) -> Result<StatusCode, StatusCode> {
     let result = sqlx::query("DELETE FROM notes WHERE slug = ?")
@@ -391,6 +415,9 @@ pub async fn delete_note(
     if result.rows_affected() == 0 {
         return Err(StatusCode::NOT_FOUND);
     }
+    // zoobidoo:start — live sync
+    let _ = sync_tx.send(format!(r#"{{"type":"note_deleted","slug":"{}"}}"#, slug));
+    // zoobidoo:end
     Ok(StatusCode::NO_CONTENT)
 }
 
