@@ -508,6 +508,10 @@
 
     const unsubStatus = sync.onStatus((connected) => { syncConnected = connected; });
 
+    // zoobidoo:start — debounce timers for focused-tab sync (keyed by paneId:slug)
+    const focusedTabDebounce = new Map<string, ReturnType<typeof setTimeout>>();
+    // zoobidoo:end
+
     const unsubSync = sync.onSync(async (event) => {
       if (event.type === "note_deleted") {
         for (const pid of Object.keys(panes)) {
@@ -523,6 +527,26 @@
         const p = panes[pid];
         const tab = p.tabs.find((t) => t.slug === event.slug);
         if (tab && !tab.dirty) {
+          // zoobidoo:start — debounce reload for focused tab; reload immediately for background tabs
+          const isFocusedActive = pid === focusedPaneId && tab.id === panes[pid].activeTabId;
+          if (isFocusedActive) {
+            const key = `${pid}:${event.slug}`;
+            clearTimeout(focusedTabDebounce.get(key));
+            focusedTabDebounce.set(key, setTimeout(async () => {
+              focusedTabDebounce.delete(key);
+              if (tab.dirty) return;
+              const r = await api(`/api/notes/${event.slug}`);
+              if (r.ok) {
+                const n: NoteDetail = await r.json();
+                tab.content = n.content; tab.title = n.title;
+                tab.tags = n.tags.join(", "); tab.savedTitle = n.title;
+                tab.savedContent = n.content; tab.savedTags = tab.tags;
+                tab.slug = n.slug; tab.backlinks = n.backlinks;
+              }
+            }, 2000));
+            continue;
+          }
+          // zoobidoo:end
           const res = await api(`/api/notes/${event.slug}`);
           if (res.ok) {
             const note: NoteDetail = await res.json();
