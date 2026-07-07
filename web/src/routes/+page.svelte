@@ -62,6 +62,7 @@
   let saveDebounce: ReturnType<typeof setTimeout> | null = null;
   // zoobidoo:start — live sync
   let syncConnected = $state(false);
+  let lastTypedAt = 0; // timestamp of last keystroke, for sync debounce
   // zoobidoo:end
 
   let sortedNotes = $derived(
@@ -349,6 +350,9 @@
     tab.content = md;
     syncTabTagsField(tab);
     markPaneTabDirty(paneId);
+    // zoobidoo:start — track typing time for sync debounce
+    lastTypedAt = Date.now();
+    // zoobidoo:end
   }
 
   function handlePaneRemoveMedia(paneId: string, m: MediaItem) {
@@ -508,9 +512,9 @@
 
     const unsubStatus = sync.onStatus((connected) => { syncConnected = connected; });
 
-    // zoobidoo:start — debounce+maxWait timers for focused-tab sync (keyed by paneId:slug)
-    const focusedTabDebounce = new Map<string, ReturnType<typeof setTimeout>>();
-    const focusedTabMaxWait  = new Map<string, ReturnType<typeof setTimeout>>();
+    // zoobidoo:start — typing-aware sync: debounce only when user is actively typing
+    const TYPING_IDLE_MS = 2000;
+    const typingDebounce = new Map<string, ReturnType<typeof setTimeout>>();
 
     async function reloadTab(slug: string, tab: TabSession) {
       if (tab.dirty) return;
@@ -540,25 +544,16 @@
         const p = panes[pid];
         const tab = p.tabs.find((t) => t.slug === event.slug);
         if (tab && !tab.dirty) {
-          // zoobidoo:start — debounce+maxWait: updates after 1.5s idle, or 5s max under continuous edits
+          // zoobidoo:start — if user is actively typing in this tab, debounce to avoid cursor jump; otherwise update immediately
           const isFocusedActive = pid === focusedPaneId && tab.id === panes[pid].activeTabId;
-          if (isFocusedActive) {
+          const isTyping = isFocusedActive && (Date.now() - lastTypedAt < TYPING_IDLE_MS);
+          if (isTyping) {
             const key = `${pid}:${event.slug}`;
-            clearTimeout(focusedTabDebounce.get(key));
-            focusedTabDebounce.set(key, setTimeout(() => {
-              clearTimeout(focusedTabMaxWait.get(key));
-              focusedTabDebounce.delete(key);
-              focusedTabMaxWait.delete(key);
+            clearTimeout(typingDebounce.get(key));
+            typingDebounce.set(key, setTimeout(() => {
+              typingDebounce.delete(key);
               reloadTab(event.slug, tab);
-            }, 1500));
-            if (!focusedTabMaxWait.has(key)) {
-              focusedTabMaxWait.set(key, setTimeout(() => {
-                clearTimeout(focusedTabDebounce.get(key));
-                focusedTabDebounce.delete(key);
-                focusedTabMaxWait.delete(key);
-                reloadTab(event.slug, tab);
-              }, 5000));
-            }
+            }, TYPING_IDLE_MS));
             continue;
           }
           // zoobidoo:end
