@@ -162,10 +162,14 @@ mod tests {
     }
 
     fn app_state(db: SqlitePool) -> AppState {
+        // zoobidoo:start — live sync: supply a dummy channel for tests
+        let (sync_tx, _) = tokio::sync::broadcast::channel(1);
+        // zoobidoo:end
         AppState {
             db,
             client: None,
             bucket: None,
+            sync_tx,
         }
     }
 
