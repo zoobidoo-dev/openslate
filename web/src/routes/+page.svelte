@@ -508,8 +508,21 @@
 
     const unsubStatus = sync.onStatus((connected) => { syncConnected = connected; });
 
-    // zoobidoo:start — debounce timers for focused-tab sync (keyed by paneId:slug)
+    // zoobidoo:start — debounce+maxWait timers for focused-tab sync (keyed by paneId:slug)
     const focusedTabDebounce = new Map<string, ReturnType<typeof setTimeout>>();
+    const focusedTabMaxWait  = new Map<string, ReturnType<typeof setTimeout>>();
+
+    async function reloadTab(slug: string, tab: TabSession) {
+      if (tab.dirty) return;
+      const r = await api(`/api/notes/${slug}`);
+      if (r.ok) {
+        const n: NoteDetail = await r.json();
+        tab.content = n.content; tab.title = n.title;
+        tab.tags = n.tags.join(", "); tab.savedTitle = n.title;
+        tab.savedContent = n.content; tab.savedTags = tab.tags;
+        tab.slug = n.slug; tab.backlinks = n.backlinks;
+      }
+    }
     // zoobidoo:end
 
     const unsubSync = sync.onSync(async (event) => {
@@ -527,23 +540,25 @@
         const p = panes[pid];
         const tab = p.tabs.find((t) => t.slug === event.slug);
         if (tab && !tab.dirty) {
-          // zoobidoo:start — debounce reload for focused tab; reload immediately for background tabs
+          // zoobidoo:start — debounce+maxWait: updates after 1.5s idle, or 5s max under continuous edits
           const isFocusedActive = pid === focusedPaneId && tab.id === panes[pid].activeTabId;
           if (isFocusedActive) {
             const key = `${pid}:${event.slug}`;
             clearTimeout(focusedTabDebounce.get(key));
-            focusedTabDebounce.set(key, setTimeout(async () => {
+            focusedTabDebounce.set(key, setTimeout(() => {
+              clearTimeout(focusedTabMaxWait.get(key));
               focusedTabDebounce.delete(key);
-              if (tab.dirty) return;
-              const r = await api(`/api/notes/${event.slug}`);
-              if (r.ok) {
-                const n: NoteDetail = await r.json();
-                tab.content = n.content; tab.title = n.title;
-                tab.tags = n.tags.join(", "); tab.savedTitle = n.title;
-                tab.savedContent = n.content; tab.savedTags = tab.tags;
-                tab.slug = n.slug; tab.backlinks = n.backlinks;
-              }
-            }, 2000));
+              focusedTabMaxWait.delete(key);
+              reloadTab(event.slug, tab);
+            }, 1500));
+            if (!focusedTabMaxWait.has(key)) {
+              focusedTabMaxWait.set(key, setTimeout(() => {
+                clearTimeout(focusedTabDebounce.get(key));
+                focusedTabDebounce.delete(key);
+                focusedTabMaxWait.delete(key);
+                reloadTab(event.slug, tab);
+              }, 5000));
+            }
             continue;
           }
           // zoobidoo:end
